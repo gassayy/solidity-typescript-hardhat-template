@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "hardhat/console.sol";
+
+
 contract ForwardingContract {
     struct ForwardRequest {
         address from;      // Original signer
@@ -12,6 +15,8 @@ contract ForwardingContract {
     }
     
     mapping(address => uint256) public nonces;
+    
+    event DigestCreated(bytes32 digest);
     
     function execute(
         ForwardRequest calldata req,
@@ -39,19 +44,16 @@ contract ForwardingContract {
         ForwardRequest calldata req,
         bytes calldata signature
     ) public pure returns (bool) {
-        bytes32 digest = keccak256(abi.encodePacked(
-            "\x19Ethereum Signed Message:\n32",
-            keccak256(abi.encode(
-                req.from,
-                req.to,
-                req.value,
-                req.gas,
-                req.nonce,
-                req.data
-            ))
-        ));
+        bytes memory encodedData = abi.encode(
+            req.from,
+            req.to,
+            req.value,
+            req.gas,
+            req.nonce,
+            req.data
+        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(encodedData)));
         
-        // Recover the signer address
         address recovered = ecrecover(
             digest,
             uint8(signature[0]),
