@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
-
-
 contract ForwardingContract {
+    error InvalidSignature();
+    error InvalidNonce();
+
     struct ForwardRequest {
         address from;      // Original signer
         address to;        // Target contract
@@ -22,8 +22,8 @@ contract ForwardingContract {
         ForwardRequest calldata req,
         bytes calldata signature
     ) external payable returns (bool, bytes memory) {
-        require(verify(req, signature), "Invalid signature");
-        require(nonces[req.from]++ == req.nonce, "Invalid nonce");
+        if (!verify(req, signature)) revert InvalidSignature();
+        if (nonces[req.from]++ != req.nonce) revert InvalidNonce();
         
         (bool success, bytes memory returndata) = req.to.call{
             gas: req.gas,
@@ -32,9 +32,7 @@ contract ForwardingContract {
         
         // Forward revert reason if call failed
         if (!success) {
-            assembly {
-                revert(add(returndata, 32), mload(returndata))
-            }
+            revert(string(returndata));
         }
         
         return (success, returndata);
@@ -53,7 +51,6 @@ contract ForwardingContract {
             req.data
         );
         bytes32 digest = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(encodedData)));
-        
         address recovered = ecrecover(
             digest,
             uint8(signature[0]),

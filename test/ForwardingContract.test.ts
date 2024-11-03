@@ -129,7 +129,7 @@ describe("ForwardingContract", () => {
             const signature = await createSignature(request, user);
 
             await expect(forwardingContract.execute(request, signature))
-                .to.be.revertedWith("Invalid nonce");
+                .to.be.revertedWithCustomError(forwardingContract, "InvalidNonce");
         });
 
         it("should fail with invalid signature", async () => {
@@ -149,7 +149,7 @@ describe("ForwardingContract", () => {
             const signature = await createSignature(request, owner); // Wrong signer
 
             await expect(forwardingContract.execute(request, signature))
-                .to.be.revertedWith("Invalid signature");
+                .to.be.revertedWithCustomError(forwardingContract, "InvalidSignature");
         });
     });
 });
