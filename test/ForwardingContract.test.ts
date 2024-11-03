@@ -15,7 +15,7 @@ describe("ForwardingContract", () => {
     const setupFixture = deployments.createFixture(async () => {
         await deployments.fixture();
 
-        const forwardingContract = await ethers.deployContract("ForwardingContract");
+        const forwardingContract = await ethers.deployContract("Forwarding");
         const targetContract = await ethers.deployContract("TargetContract");
 
         const [owner, user] = await ethers.getSigners();

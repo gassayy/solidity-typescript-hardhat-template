@@ -1,25 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract ForwardingContract {
-    error InvalidSignature();
-    error InvalidNonce();
+import { IForwarding } from "../interfaces/IForwarding.sol";
 
-    struct ForwardRequest {
-        address from;      // Original signer
-        address to;        // Target contract
-        uint256 value;     // ETH value to forward
-        uint256 gas;       // Gas limit
-        uint256 nonce;     // Unique nonce
-        bytes data;        // Call data
-    }
-    
+contract Forwarding is IForwarding{
     mapping(address => uint256) public nonces;
     
-    event DigestCreated(bytes32 digest);
-    
     function execute(
-        ForwardRequest calldata req,
+        IForwarding.ForwardRequest calldata req,
         bytes calldata signature
     ) external payable returns (bool, bytes memory) {
         if (!verify(req, signature)) revert InvalidSignature();

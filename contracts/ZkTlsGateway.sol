@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.20;
 
-import "./interfaces/IZkTLSGateway.sol";
-import "./uuid/ZkTlsRequestIDBase.sol";
+import {IZkTLSGateway} from "./interfaces/IZkTLSGateway.sol";
+import {ZkTlsRequestIDBase} from "./uuid/ZkTlsRequestIDBase.sol";
 
 abstract contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase {
 
