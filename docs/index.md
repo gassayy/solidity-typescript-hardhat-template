@@ -14,5 +14,6 @@
 ## References
 
 - https://github.com/risc0/risc0-foundry-template/
-
+- https://datatracker.ietf.org/doc/html/rfc2616
+- https://http.dev/1.1
 - https://github.com/the3cloud/zktls
