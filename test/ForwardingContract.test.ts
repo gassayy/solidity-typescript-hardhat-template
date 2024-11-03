@@ -1,5 +1,15 @@
 import { expect } from "chai";
 import { deployments, ethers } from "hardhat";
+import { AbiCoder, Signature, concat, getBytes, hashMessage, keccak256, Signer } from "ethers";
+
+interface ForwardRequest {
+    from: string;
+    to: string;
+    value: bigint;
+    gas: bigint;
+    nonce: bigint;
+    data: string;
+}
 
 describe("ForwardingContract", () => {
     const setupFixture = deployments.createFixture(async () => {
@@ -38,31 +48,20 @@ describe("ForwardingContract", () => {
         };
     }
 
-    async function createSignature(request: ForwardRequest, signer: ethers.Signer) {
-        // Match the exact hashing process in the Solidity contract
-        const encodedData = ethers.AbiCoder.defaultAbiCoder().encode(
+    async function createSignature(request: ForwardRequest, signer: Signer) {
+        const encodedData = AbiCoder.defaultAbiCoder().encode(
             ['address', 'address', 'uint256', 'uint256', 'uint256', 'bytes'],
-            [
-                request.from,
-                request.to,
-                request.value,
-                request.gas,
-                request.nonce,
-                request.data
-            ]
+            [request.from, request.to, request.value, request.gas, request.nonce, request.data]
         );
-        const hashedData = ethers.keccak256(encodedData);
-        // Add the Ethereum Signed Message prefix
-        const messageHashBytes = ethers.getBytes(hashedData);
-        const prefixedHash = ethers.hashMessage(messageHashBytes);
+        const hashedData = keccak256(encodedData);
+        const messageHashBytes = getBytes(hashedData);
+        const prefixedHash = hashMessage(messageHashBytes);
         const signature = await signer.signMessage(messageHashBytes);
-        // Convert the signature string to v, r, s components
-        const sig = ethers.Signature.from(signature);
-        // Format signature as expected by the contract (65 bytes total)
-        const formattedSignature = ethers.concat([
-            new Uint8Array([sig.v]),  // v: 1 byte
-            sig.r,                    // r: 32 bytes
-            sig.s,                    // s: 32 bytes
+        const sig = Signature.from(signature);
+        const formattedSignature = concat([
+            new Uint8Array([sig.v]),
+            sig.r,
+            sig.s,
         ]);
         
         return formattedSignature;
