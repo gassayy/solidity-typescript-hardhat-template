@@ -186,3 +186,50 @@ Reach out at [protokol.com/contact](https://www.protokol.com/contact/) to learn 
 **Looking for an exciting new role in web3?**
 
 Head over to [protokol.com/careers](https://www.protokol.com/careers/) to discover the roles we have available or to submit your résumé.
+
+# Project Name
+
+Welcome to the Project Name repository. This project is designed to...
+
+## Table of Contents
+
+- [Introduction](#introduction)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Contracts](#contracts)
+  - [Vault](#vault)
+  - [ZkTlsGateway](#zktlsgateway)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Introduction
+
+Provide a brief introduction to your project here...
+
+## Installation
+
+Instructions for installing the project...
+
+## Usage
+
+Instructions for using the project...
+
+## Contracts
+
+### Vault
+
+The `Vault` contract allows users to deposit specific tokens or native tokens and exchange them for another token. For more details, refer to the contract documentation.
+
+### ZkTlsGateway
+
+The `ZkTlsGateway` contract facilitates secure and private transactions using zero-knowledge proofs. It acts as a gateway for users to interact with a blockchain network while maintaining privacy and security.
+
+For detailed information about the `ZkTlsGateway` contract, please refer to the [ZkTlsGateway Documentation](docs/ZkTlsGateway.md).
+
+## Contributing
+
+Guidelines for contributing to the project...
+
+## License
+
+This project is licensed under the MIT License.
