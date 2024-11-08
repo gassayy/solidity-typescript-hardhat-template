@@ -4,6 +4,26 @@
 
 ![system architecture](./images/system-overview.jpg)
 ![relayer architecture](./images/relayer-arch.jpg)
+![contracts](./images/contracts-arch.jpg)
+
+## ZKTLS Contracts Specification
+
+### ZkTlsManager
+
+* register and deployer account contracts 
+* manage zktls configuration
+
+### ZkTlsGateway
+
+* process zktls call and emit zktls events
+* charge zktls fee
+* delivery response vis callback
+
+### The3CloudAccount
+
+* allow dApp to register account
+* deposit payment token and gas
+* initialize zktls request
 
 
 ## Interfaces
