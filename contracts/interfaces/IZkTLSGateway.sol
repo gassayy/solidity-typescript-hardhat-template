@@ -3,12 +3,16 @@ pragma solidity ^0.8.20;
 
 interface IZkTLSGateway {
 
+	error InvalidForwardingAddress();
 	error ResponseExceedsMaxSize();
 	error InsufficientGas();
 	error InvalidRequestHash();
 	error InsufficientPaidGas();
 	error InsufficientTokenBalance();
 	error InsufficientTokenAllowance();
+	error FieldValueLengthMismatch();
+	error PaymentTokenTransferFailed();
+	error GasRefundFailed();
 
 	struct CallbackInfo {
 		address caller;

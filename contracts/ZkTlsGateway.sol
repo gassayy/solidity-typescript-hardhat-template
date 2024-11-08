@@ -10,6 +10,7 @@ import { ZkTlsRequestIDBase } from "./uuid/ZkTlsRequestIDBase.sol";
 import { IForwarding } from "./interfaces/IForwarding.sol";
 
 contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
+	
 	uint256 private _nonce;
 	bytes32 private _gatewayHash;
 	IForwarding private _forwarding;
@@ -21,7 +22,7 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 	
 
 	constructor(address forwardingAddress, address paymentToken) {
-		require(forwardingAddress != address(0), "Invalid forwarding address");
+		if (forwardingAddress == address(0)) revert InvalidForwardingAddress();
 		_forwardingAddress = forwardingAddress;
 		_forwarding = IForwarding(forwardingAddress);
 		_paymentToken = IERC20(paymentToken);
@@ -66,10 +67,10 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 		uint64 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
 		requestId = _generateRequestId();
-		require(
-			request.fields.length == request.values.length,
-			"Fields and values must have the same length"
-		);
+
+		if (request.fields.length != request.values.length) {
+			revert FieldValueLengthMismatch();
+		}
 
 		_requestCallbacks[requestId] = _populateCallbackInfo(
 			requestId,
@@ -214,10 +215,10 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 			address(this),
 			fee
 		);
-		require(success, "Payment Token transfer failed");
+		if (!success) revert PaymentTokenTransferFailed();
 		if (usedGas <= paidGas) {
 			(bool sent, ) = httpClient.call{ value: msg.value }("");
-			require(sent, "Failed to send Ether");
+			if (!sent) revert GasRefundFailed();
 		}
 	}
 }
