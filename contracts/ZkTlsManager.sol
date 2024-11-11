@@ -1,13 +1,34 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
 import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 
-contract ZkTlsManager is IZkTlsManager {
+contract ZkTlsManager is IZkTlsManager, Initializable, UUPSUpgradeable, OwnableUpgradeable  {
   
+  event UpgradeAuthorized(address indexed newImplementation);
+
   // zktls account address to prover address
   mapping(address => address) private _accountToGateway;  
   uint256 private _tokenWeiPerBytes;
+
+
+  // constructor() {
+  //   _disableInitializers();
+  // }
+
+  function initialize(uint256 tokenWeiPerBytes, address _owner) public initializer {
+    __UUPSUpgradeable_init();
+    _tokenWeiPerBytes = tokenWeiPerBytes;
+    __Ownable_init(_owner);
+  }
+
+  function _authorizeUpgrade(address newImplementation) internal override onlyOwner {
+    emit UpgradeAuthorized(newImplementation);
+  }
 
   /**
    * @notice Checks if the given account has access.
