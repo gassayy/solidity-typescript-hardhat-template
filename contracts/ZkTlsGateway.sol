@@ -1,38 +1,51 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.28;
 
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
 import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
-import { IZkTLSGateway } from "./interfaces/IZkTLSGateway.sol";
-import { ZkTlsRequestIDBase } from "./uuid/ZkTlsRequestIDBase.sol";
-import { IForwarding } from "./interfaces/IForwarding.sol";
+import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
+import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
 
-contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
-	
-	uint256 private _nonce;
+contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 	bytes32 private _gatewayHash;
-	IForwarding private _forwarding;
-	address private _forwardingAddress;
-	IERC20 private _paymentToken;
+	address private _verifier;
+	address private _paymentToken;
 	// @dev mapping of requestId to callbackInfo
 	mapping(bytes32 => CallbackInfo) private _requestCallbacks;
 
-	
-
-	constructor(address forwardingAddress, address paymentToken) {
+	constructor(
+		address forwardingAddress,
+		address paymentToken,
+		address verifier
+	) {
 		if (forwardingAddress == address(0)) revert InvalidForwardingAddress();
-		_forwardingAddress = forwardingAddress;
-		_forwarding = IForwarding(forwardingAddress);
-		_paymentToken = IERC20(paymentToken);
+		_verifier = verifier;
+		_paymentToken = paymentToken;
 		_gatewayHash = keccak256(abi.encode(address(this)));
-		_nonce = 0;
 	}
 
-	function _generateRequestId() internal view returns (bytes32) {
-		uint256 zkTlsInputSeed = makeZkTlsInputSeed(msg.sender, _nonce);
-		return makeRequestId(_gatewayHash, zkTlsInputSeed);
+	function estimateFee(
+		uint64 maxResponseBytes
+	) external pure returns (uint256) {
+		return maxResponseBytes * 10;
+	}
+
+	function getConfiguration()
+		external
+		view
+		returns (
+			address gatewayHash,
+			address paymentToken,
+			address verifier
+		)
+	{
+		return (address(this), _paymentToken, _verifier);
+	}
+
+	function _generateRequestId(address account, uint256 nonce) internal view returns (bytes32) {
+		return keccak256(abi.encodePacked(address(this), account, nonce)); 
 	}
 
 	function _populateCallbackInfo(
@@ -40,6 +53,7 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 		bytes32 requestTemplateHash,
 		bytes32 responseTemplateHash,
 		uint256 fee,
+		uint64 nonce,
 		uint256 paidGas,
 		uint64 maxResponseBytes,
 		bytes calldata encryptedKey
@@ -49,10 +63,12 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 			caller: tx.origin,
 			httpClient: msg.sender,
 			maxResponseBytes: maxResponseBytes,
-			nonce: block.number,
+			nonce: nonce,
 			fee: fee,
 			paidGas: paidGas,
-			requestHash: keccak256(abi.encode(requestId, msg.sender, encryptedKey)),
+			requestHash: keccak256(
+				abi.encode(requestId, msg.sender, encryptedKey, nonce)
+			),
 			requestTemplateHash: requestTemplateHash,
 			responseTemplateHash: responseTemplateHash
 		});
@@ -62,11 +78,12 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		TemplatedRequest calldata request,
+		IZkTlsAccount.TemplatedRequest calldata request,
 		uint256 fee,
+		uint64 nonce,
 		uint64 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
-		requestId = _generateRequestId();
+		requestId = _generateRequestId(msg.sender, nonce);
 
 		if (request.fields.length != request.values.length) {
 			revert FieldValueLengthMismatch();
@@ -77,6 +94,7 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 			request.requestTemplateHash,
 			request.responseTemplateHash,
 			fee,
+			nonce,
 			msg.value, // paidGas amount
 			maxResponseBytes,
 			encryptedKey
@@ -101,8 +119,6 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 				encryptedKey.length > 0 ? true : false
 			);
 		}
-		// post increment nonce
-		_nonce++;
 	}
 
 	/**
@@ -119,23 +135,25 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 		bytes calldata encryptedKey,
 		bytes[] calldata data,
 		uint256 fee,
-		uint64 maxResponseBytes
+		uint64 maxResponseBytes,
+		uint64 nonce
 	) public payable returns (bytes32 requestId) {
-		requestId = _generateRequestId();
+		requestId = _generateRequestId(msg.sender, nonce);
 
 		_requestCallbacks[requestId] = _populateCallbackInfo(
 			requestId,
 			0x0, // requestTemplateHash is not used
 			0x0, // responseTemplateHash is not used
 			fee,
-			msg.value,
+			nonce,
+			msg.value, // paidGas amount
 			maxResponseBytes,
 			encryptedKey
 		);
 
 		emit RequestTLSCallBegin(
 			requestId,
-			0x0, // prover is not used
+			0x0,	// prover is not used
 			0x0, // requestTemplateHash is not used
 			0x0, // responseTemplateHash is not used
 			remote,
@@ -148,77 +166,34 @@ contract ZkTLSGateway is IZkTLSGateway, ZkTlsRequestIDBase, ReentrancyGuard {
 			bool isEncrypted = i % 2 == 0;
 			emit RequestTLSCallSegment(requestId, data[i], !isEncrypted);
 		}
-		// post increment nonce
-		_nonce++;
 	}
 
 	function deliveryResponse(
 		bytes32 requestId,
 		bytes32 requestHash,
-		bytes calldata response
+		bytes calldata response,
+		// solhint-disable-next-line no-unused-vars
+		bytes calldata proofs
 	) public payable nonReentrant {
-		IZkTLSGateway.CallbackInfo memory cb = _requestCallbacks[requestId];
+		
+		CallbackInfo memory cb = _requestCallbacks[requestId];
 
 		// Use the custom error instead of require
 		if (response.length > cb.maxResponseBytes) {
 			revert ResponseExceedsMaxSize();
 		}
-		uint256 startGas = gasleft();
-		bytes memory callData = abi.encodeWithSignature(
+		// check if requestHash is valid
+		if (cb.requestHash != requestHash) revert InvalidRequestHash();
+		
+		// TODO: call zktls verifier
+		bytes memory data = abi.encodeWithSignature(
 			"deliveryResponse(bytes32,bytes32,bytes)",
 			requestId,
 			requestHash,
 			response
 		);
-
-		IForwarding.ForwardRequest memory request = IForwarding.ForwardRequest({
-			from: cb.caller,
-			to: cb.httpClient,
-			value: cb.fee,
-			gas: cb.paidGas,
-			nonce: cb.nonce,
-			data: callData
-		});
-		// TODO: verify requestHash
-		_forwarding.execute(request, bytes("hello world"));
-		uint256 endGas = gasleft();
-		uint256 usedGasAmount = _calculateGasUsedAmount(startGas - endGas);
-		emit GasUsed(requestId, cb.paidGas, usedGasAmount, tx.gasprice);
-		// transfer the fee to the caller
-		_transferFee(cb.httpClient, cb.paidGas, usedGasAmount, cb.fee);
-		// delete the callback info
+		Address.functionCall(cb.httpClient, data);
 		delete _requestCallbacks[requestId];
 	}
 
-	function _calculateGasUsedAmount(
-		uint256 gasUsed
-	) internal view returns (uint256) {
-		return gasUsed * tx.gasprice;
-	}
-
-	function _transferFee(
-		address httpClient,
-		uint256 paidGas,
-		uint256 usedGas,
-		uint256 fee
-	) internal {
-		uint256 clientTokenBalance = _paymentToken.balanceOf(httpClient);
-
-		if (paidGas < usedGas) revert InsufficientPaidGas();
-		if (clientTokenBalance < fee) revert InsufficientTokenBalance();
-
-		uint256 allowed = _paymentToken.allowance(httpClient, address(this));
-		if (allowed < fee) revert InsufficientTokenAllowance();
-
-		bool success = _paymentToken.transferFrom(
-			httpClient,
-			address(this),
-			fee
-		);
-		if (!success) revert PaymentTokenTransferFailed();
-		if (usedGas <= paidGas) {
-			(bool sent, ) = httpClient.call{ value: msg.value }("");
-			if (!sent) revert GasRefundFailed();
-		}
-	}
 }
