@@ -5,7 +5,9 @@ import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
 import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
+
 import { IZkTlsResponseHandler } from "./interfaces/IZkTlsResponseHandler.sol";
+import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 
 contract SimpleZkTlsAccount is IZkTlsAccount {
 	address private _manager;
@@ -39,7 +41,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount {
 		bytes calldata encryptedKey,
 		bytes[] calldata data,
 		uint256 fee,
-		uint64 maxResponseBytes
+		uint256 maxResponseBytes
 	) external payable returns (bytes32 requestId) {
 		// approve the gateway to spend/transfer the fee
 		IERC20(_paymentToken).approve(_gateway, fee);
@@ -63,7 +65,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount {
 		bytes calldata encryptedKey,
 		TemplatedRequest calldata request,
 		uint256 fee,
-		uint64 maxResponseBytes
+		uint256 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
 		// approve the gateway to spend/transfer the fee
 		IERC20(_paymentToken).approve(_gateway, fee);
@@ -76,8 +78,8 @@ contract SimpleZkTlsAccount is IZkTlsAccount {
 			encryptedKey,
 			request,
 			fee,
-			maxResponseBytes,
-			_nonce
+			_nonce,
+			maxResponseBytes
 		);
 
 		_nonce++;
@@ -87,8 +89,13 @@ contract SimpleZkTlsAccount is IZkTlsAccount {
 	function deliveryResponse(
 		bytes32 requestId,
 		bytes32 requestHash,
-		bytes calldata response
+		bytes calldata response,
+		uint256 paidGas,
+		uint256 fee,
+		uint256 actualUsedBytes // response bytes + response bytes
 	) external payable {
+		if (msg.sender != _gateway) revert UnauthorizedCaller();
+		
 		uint256 start = gasleft();
 		bytes memory data = abi.encodeWithSelector(
 			IZkTlsResponseHandler.handleResponse.selector,
@@ -98,27 +105,37 @@ contract SimpleZkTlsAccount is IZkTlsAccount {
 		);
 		Address.functionCall(_responseHandler, data);
 		uint256 usedGas = start - gasleft();
-		_transferFeeFromAccount(address(this), usedGas, usedGas, 0);
+		_transferFeeFromAccount(msg.sender, paidGas, usedGas, fee, actualUsedBytes);
 	}
 
 	function _transferFeeFromAccount(
 		address zkTlsAccount,
 		uint256 paidGas,
 		uint256 usedGas,
-		uint256 fee
+		uint256 fee,
+		uint256 actualUsedBytes
 	) internal {
-		uint256 allowed = IERC20(_paymentToken).balanceOf(address(this));
+		uint256 allowed = IERC20(_paymentToken).allowance(address(this), _gateway);
 		if (allowed < fee) revert InsufficientTokenAllowance();		
 		if (paidGas < usedGas) revert InsufficientPaidGas();
-
+		// transfer fee to gateway
 		bool success = IERC20(_paymentToken).transferFrom(
 			zkTlsAccount,
-			address(this),
+			_gateway,
 			fee
 		);
+
+		uint256 refund = fee - (actualUsedBytes * IZkTlsManager(_manager).getTokenWeiPerBytes());
+
+		// refund unused fee
+		if (refund > 0) {
+			success = IERC20(_paymentToken).transfer(zkTlsAccount, refund);
+		}
 		if (!success) revert PaymentTokenTransferFailed();
+
+		// refund unused gas	
 		if (usedGas <= paidGas) {
-			(bool sent, ) = zkTlsAccount.call{ value: msg.value }("");
+			(bool sent, ) = zkTlsAccount.call{ value: paidGas - usedGas }("");
 			if (!sent) revert GasRefundFailed();
 		}
 	}

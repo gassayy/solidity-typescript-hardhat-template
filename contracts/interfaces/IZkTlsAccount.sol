@@ -9,6 +9,7 @@ interface IZkTlsAccount {
 	error InsufficientTokenAllowance();
 	error PaymentTokenTransferFailed();
 	error GasRefundFailed();
+	error UnauthorizedCaller();
 
 	struct TemplatedRequest {
 		bytes32 requestTemplateHash;
@@ -23,7 +24,7 @@ interface IZkTlsAccount {
 		bytes calldata encryptedKey,
 		TemplatedRequest calldata request,
 		uint256 fee,
-		uint64 maxResponseBytes
+		uint256 maxResponseBytes
 	) external payable returns (bytes32 requestId);
 
 	function requestTLSCall(
@@ -32,13 +33,16 @@ interface IZkTlsAccount {
 		bytes calldata encryptedKey,
 		bytes[] calldata data,
 		uint256 fee,
-		uint64 maxResponseBytes
+		uint256 maxResponseBytes
 	) external payable returns (bytes32 requestId);
 
 	function deliveryResponse(
 		bytes32 requestId,
 		bytes32 requestHash,
-		bytes calldata response
+		bytes calldata response,
+		uint256 paidGas,
+		uint256 fee,
+		uint256 actualUsedBytes
 	) external payable;
 
 }

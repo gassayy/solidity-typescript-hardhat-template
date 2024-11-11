@@ -15,7 +15,8 @@ interface IZkTlsGateway {
 	struct CallbackInfo {
 		address caller;
 		address httpClient;
-		uint64 maxResponseBytes;
+		uint256 requestBytes;
+		uint256 maxResponseBytes;
 		uint256 fee;
 		uint256 paidGas;
 		uint256 nonce;
@@ -32,7 +33,7 @@ interface IZkTlsGateway {
         string remote,
         string serverName,
         bytes encryptedKey,
-        uint64 maxResponseSize
+        uint256 maxResponseBytes
     );
 	event RequestTLSCallSegment(bytes32 indexed requestId, bytes data, bool isEncrypted);
   event RequestTLSCallTemplateField(bytes32 indexed requestId, bytes32 indexed field, bytes value, bool isEncrypted);
@@ -45,7 +46,7 @@ interface IZkTlsGateway {
 		bytes calldata encryptedKey,
 		bytes[] calldata data,
 		uint256 fee,
-		uint64 maxResponseBytes,
+		uint256 maxResponseBytes,
 		uint64 nonce
 	) external payable returns (bytes32 requestId);
 
@@ -56,7 +57,7 @@ interface IZkTlsGateway {
 		IZkTlsAccount.TemplatedRequest calldata request,
 		uint256 fee,
 		uint64 nonce,
-		uint64 maxResponseBytes
+		uint256 maxResponseBytes
 	) external payable returns (bytes32 requestId);
 
 	function deliveryResponse(

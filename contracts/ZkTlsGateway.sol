@@ -27,7 +27,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 	}
 
 	function estimateFee(
-		uint64 maxResponseBytes
+		uint256 maxResponseBytes
 	) external pure returns (uint256) {
 		return maxResponseBytes * 10;
 	}
@@ -52,16 +52,18 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		bytes32 requestId,
 		bytes32 requestTemplateHash,
 		bytes32 responseTemplateHash,
+		uint256 requestBytes,
 		uint256 fee,
 		uint64 nonce,
 		uint256 paidGas,
-		uint64 maxResponseBytes,
+		uint256 maxResponseBytes,
 		bytes calldata encryptedKey
 	) internal view returns (CallbackInfo memory cb) {
 		cb = CallbackInfo({
 			// solhint-disable-next-line avoid-tx-origin
 			caller: tx.origin,
 			httpClient: msg.sender,
+			requestBytes: requestBytes,
 			maxResponseBytes: maxResponseBytes,
 			nonce: nonce,
 			fee: fee,
@@ -81,7 +83,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		IZkTlsAccount.TemplatedRequest calldata request,
 		uint256 fee,
 		uint64 nonce,
-		uint64 maxResponseBytes
+		uint256 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
 		requestId = _generateRequestId(msg.sender, nonce);
 
@@ -93,6 +95,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 			requestId,
 			request.requestTemplateHash,
 			request.responseTemplateHash,
+			0, // init requestBytes
 			fee,
 			nonce,
 			msg.value, // paidGas amount
@@ -112,6 +115,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		);
 
 		for (uint256 i = 0; i < request.fields.length; i++) {
+			_requestCallbacks[requestId].requestBytes += request.values[i].length;
 			emit RequestTLSCallTemplateField(
 				requestId,
 				request.fields[i],
@@ -135,7 +139,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		bytes calldata encryptedKey,
 		bytes[] calldata data,
 		uint256 fee,
-		uint64 maxResponseBytes,
+		uint256 maxResponseBytes,
 		uint64 nonce
 	) public payable returns (bytes32 requestId) {
 		requestId = _generateRequestId(msg.sender, nonce);
@@ -144,6 +148,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 			requestId,
 			0x0, // requestTemplateHash is not used
 			0x0, // responseTemplateHash is not used
+			0, // init requestBytes as 0
 			fee,
 			nonce,
 			msg.value, // paidGas amount
@@ -164,6 +169,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 
 		for (uint256 i = 0; i < data.length; i++) {
 			bool isEncrypted = i % 2 == 0;
+			_requestCallbacks[requestId].requestBytes += data[i].length;
 			emit RequestTLSCallSegment(requestId, data[i], !isEncrypted);
 		}
 	}
@@ -185,12 +191,17 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		// check if requestHash is valid
 		if (cb.requestHash != requestHash) revert InvalidRequestHash();
 		
+		uint256 actualUsedBytes = response.length + cb.requestBytes;
+
 		// TODO: call zktls verifier
 		bytes memory data = abi.encodeWithSignature(
-			"deliveryResponse(bytes32,bytes32,bytes)",
+			"deliveryResponse(bytes32,bytes32,bytes,uint256,uint256,uint256)",
 			requestId,
 			requestHash,
-			response
+			response,
+			cb.paidGas,
+			cb.fee,
+			actualUsedBytes
 		);
 		Address.functionCall(cb.httpClient, data);
 		delete _requestCallbacks[requestId];
