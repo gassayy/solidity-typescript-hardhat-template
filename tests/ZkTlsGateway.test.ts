@@ -19,7 +19,6 @@ describe("ZkTlsGateway", () => {
   });
 
   const responseHandlerGasEstimation = async (
-    signer: any,
     responseHandler: IZkTlsResponseHandler,
     requestId: string,
     requestHash: string,
@@ -30,17 +29,64 @@ describe("ZkTlsGateway", () => {
       requestHash,
       responseBytes
     );
-    console.log("estimate gas: ", gasEstimate); // 31518n for none-loop, 4011984n for 10000-iterations
+    console.log("estimate gas: ", gasEstimate); // 1516093n for none-loop, 3506127n for 5000-iterations
+    return gasEstimate;
   }
 
-  const computeRequestId = (gatewayAddress: string, accountProxyAddress: string, gatewayNonce: number) => {
-    return ethers.keccak256(ethers.solidityPacked(
+  const computeRequestId = (gatewayAddress: string, accountProxyAddress: string, gatewayNonce: number) =>
+    ethers.keccak256(ethers.solidityPacked(
       ["address", "address", "uint256"], [gatewayAddress, accountProxyAddress, gatewayNonce]
     ));
+  
+  const computeRequestHash = (requestId: string, sender: string, encryptedKey: string, nonce: number) => {
+    console.log("ts inputs: ", requestId, sender, encryptedKey, nonce);
+    return ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
+      ["bytes32", "address", "bytes", "uint256"], 
+      [requestId, sender, encryptedKey, nonce]
+    ));
   }
-  const computeRequestHash = (requestId: string, sender: string, encryptedKey: string, nonce: number) => ethers.keccak256(ethers.solidityPacked(
-    ["bytes32", "address", "bytes", "uint64"], [requestId, sender, encryptedKey, nonce]
-  ));
+
+  const testRequestTLSCall = async (requestInfo: any, feeConfig: any) => {
+    const requestBytes = requestInfo.templatedRequest.values.reduce(
+      (acc: number, value: any) => acc + value.length, 0
+    );
+    const estimatedFee = await contracts.zkTlsGateway.estimateFee(
+      requestBytes,
+      feeConfig.maxResponseBytes
+    );
+    // callback gas estimation
+    const nonce = 0;
+    const expectedRequestId = computeRequestId(
+      await contracts.zkTlsGateway.getAddress(),
+      await contracts.accountBeaconProxy.getAddress(),
+      nonce
+    );
+    const expectedRequestHash = computeRequestHash(
+      expectedRequestId,
+      (await contracts.accountBeaconProxy.getAddress()).toLowerCase(),
+      feeConfig.encryptedKey,
+      nonce
+    );
+    const paidGas = await responseHandlerGasEstimation(
+      contracts.responseHandler,
+      expectedRequestId,
+      expectedRequestHash,
+      data.responseBytes
+    );
+    // // test beacon proxy
+    const tx = await contracts.accountBeaconProxy
+      .connect(signers.applicationUser1).requestTLSCallTemplate(
+        requestInfo.remote,
+        requestInfo.serverName,
+        feeConfig.encryptedKey,
+        requestInfo.templatedRequest,
+        estimatedFee,
+        feeConfig.maxResponseBytes,
+      { value: paidGas * 2n }
+    );
+
+    return { requestBytes,expectedRequestId, expectedRequestHash, estimatedFee, tx };
+  }
 
   describe("Deployment", async () => {
     it("should constracts with correct configuration", async () => {
@@ -50,59 +96,22 @@ describe("ZkTlsGateway", () => {
       expect(paymentToken).to.equal(await contracts.paymentToken.getAddress());
       expect(verifier).to.equal(await contracts.verifier.getAddress());
     });
-
   });
 
   describe("Request TLS Call", () => {
     it("should create a request and emit events", async () => {
-
       const requestInfo = data.requestInfo;
-      const requestBytes = requestInfo.templatedRequest.values.reduce(
-        (acc: number, value: any) => acc + value.length, 0
-      );
-      const estimatedFee = await contracts.zkTlsGateway.estimateFee(
-        requestBytes,
-        data.feeConfig.maxResponseBytes
-      );
+      const { requestBytes, expectedRequestId, estimatedFee, tx } = 
+        await testRequestTLSCall(data.requestInfo, data.feeConfig);
+      
       // test fee estimation
       expect(estimatedFee).to.equal(
-        (BigInt(requestBytes) + BigInt(data.feeConfig.maxResponseBytes)) * 
+        (BigInt(requestBytes) + BigInt(data.feeConfig.maxResponseBytes)) *
         BigInt(data.tokenWeiPerBytes)
       );
 
-      // callback gas estimation
-      const nonce = 0;
-      const expectedRequestId = computeRequestId(
-        await contracts.zkTlsGateway.getAddress(),
-        await contracts.accountBeaconProxy.getAddress(),
-        nonce
-      );
-      const expectedRequestHash = computeRequestHash(
-        expectedRequestId,
-        await signers.applicationUser1.getAddress(),
-        data.feeConfig.encryptedKey,
-        nonce
-      );
-      await responseHandlerGasEstimation(
-        signers.applicationUser1,
-        contracts.responseHandler,
-        expectedRequestId,
-        expectedRequestHash,
-        data.responseBytes
-      );
-      // test beacon proxy
-      const tx = await contracts.accountBeaconProxy
-        .connect(signers.applicationUser1).requestTLSCallTemplate(
-        requestInfo.remote,
-        requestInfo.serverName,
-        data.feeConfig.encryptedKey,
-        requestInfo.templatedRequest,
-        estimatedFee,
-        data.feeConfig.maxResponseBytes
-      );
-
       const receipt = await tx.wait();
-      const logs = receipt.logs.map((log: any) => contracts.zkTlsGateway.interface.parseLog(log));
+      const logs = receipt?.logs.map((log: any) => contracts.zkTlsGateway.interface.parseLog(log));
       // console.log("logs: ", logs);
       // test logs: RequestTLSCallBegin & RequestTLSCallTemplateField
       logs.forEach((log: any) => {
@@ -123,10 +132,26 @@ describe("ZkTlsGateway", () => {
     });
   });
 
-  describe("Delivery Response", () => {
-      it("should process a response and emit GasUsed", async () => {
-         // TODO: test response delivery
+  // describe.only("Delivery Response", () => {
+  //   it("should process a response and emit GasUsed", async () => {
+  //     const requestInfo = data.requestInfo;
+  //     console.log("contract zktls proxy address: (msg.sender)", await contracts.accountBeaconProxy.getAddress());
+  //     const { requestBytes, expectedRequestId, expectedRequestHash, estimatedFee, tx } = 
+  //       await testRequestTLSCall(requestInfo, data.feeConfig);      
+  //     await tx.wait();
+  //     const responseTx = await contracts.zkTlsGateway.deliveryResponse(
+  //       expectedRequestId,
+  //       expectedRequestHash,
+  //       data.responseBytes,
+  //       data.responseBytes // unused proofs
+  //     )
+  //     const responseReceipt = await responseTx.wait();
+  //     const logs = responseReceipt.logs.map((log: any) => contracts.zkTlsGateway.interface.parseLog(log));
+  //     console.log("logs: ", logs);
+  //     // test logs: RequestTLSCallEnd
 
-      });
-  });
+  //   });
+  
+  // });
+
 }); 

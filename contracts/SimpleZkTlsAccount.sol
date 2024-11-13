@@ -104,7 +104,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		);
 		Address.functionCall(_responseHandler, data);
 		uint256 usedGas = start - gasleft();
-		_transferFeeFromAccount(msg.sender, paidGas, usedGas, fee, actualUsedBytes);
+		_transferFeeFromAccount(_gateway, paidGas, usedGas, fee, actualUsedBytes);
 	}
 
 	function _transferFeeFromAccount(

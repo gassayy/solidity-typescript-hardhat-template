@@ -66,6 +66,20 @@ export const setupFixture = deployments.createFixture(async () => {
   await zkTlsManager.setAccountBeacon(await accountBeacon.getAddress());
   await zkTlsManager.setGateway(1, await zkTlsGateway.getAddress());
   await zkTlsManager.authorizeAccount(await accountBeaconProxy.getAddress(), await zkTlsGateway.getAddress());
+  // token set up
+  // await paymentToken.mint(
+  //   await accountBeaconProxy.getAddress(), 
+  //   ethers.parseEther("1000000")
+  // );
+  // await paymentToken.transfer(
+  //   await accountBeaconProxy.getAddress(), 
+  //   ethers.parseEther("1000000")
+  // );
+
+  // console.log("token balance of accountBeaconProxy: ", 
+  //   await accountBeaconProxy.getAddress(),
+  //   await paymentToken.balanceOf(await accountBeaconProxy.getAddress())
+  // );
   // request info and data
   const requestInfo = {
     remote: "https://httpbin.org",
@@ -83,8 +97,6 @@ export const setupFixture = deployments.createFixture(async () => {
     maxResponseBytes: 1024n * 10n, // 10KB
     encryptedKey: ethers.ZeroHash,
   };
-
-  const responseBytes = ethers.randomBytes(256);
 
   const genRequestId = (gatewayAddress: string, accountAddress: string, gatewayNonce: number) => {
     return ethers.keccak256(ethers.solidityPacked(
@@ -107,7 +119,7 @@ export const setupFixture = deployments.createFixture(async () => {
       requestInfo,
       feeConfig,
       tokenWeiPerBytes,
-      responseBytes,
+      responseBytes: ethers.randomBytes(1024 * 60),
     },
     functions: {
       genRequestId,

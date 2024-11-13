@@ -17,7 +17,7 @@ contract MockResponseHandler is IZkTlsResponseHandler {
 	) external payable{
 		// Loop for 1000 iterations, used for gas estimation
     uint64 sum = 0;
-		for (uint64 i = 0; i < 10000; i++) {
+		for (uint64 i = 0; i < 5000; i++) {
 			sum += i;
 		}
 

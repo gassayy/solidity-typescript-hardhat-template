@@ -34,10 +34,6 @@ contract ZkTlsManager is
 	address private _accountBeacon;
 	address private _accountBeaconAdmin;
 
-	// constructor() {
-	//   _disableInitializers();
-	// }
-
 	/**
 	 * @notice Initializes the contract with a specified token rate and owner.
 	 * @param paymentToken The address of the payment token.
