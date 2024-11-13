@@ -3,13 +3,10 @@ pragma solidity ^0.8.20; // Specify the compiler version
 
 interface IZkTlsManager { 
 
-  event SetTokenWeiPerBytes(uint256 tokenWeiPerBytes);
-  error InvalidAccessToProver();
+  event SetTokenWeiPerBytes(uint256 tokenWeiPerBytes); 
+  error UnInitializedBeacon();
+  error InvalidGatewayId(uint8 gatewayId);
+  error InvalidGatewayAddress(address gateway);
 
-
-  function checkAccess(address account) external view returns (bool);
-  function getTokenWeiPerBytes() external view returns (uint256);
-
-  function setAccountToGateway(address account, address gateway) external;
-  function setTokenWeiPerBytes(uint256 tokenWeiPerBytes) external;
+  function checkAccess(address account, address gateway) external view returns (bool);
 }

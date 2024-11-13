@@ -5,7 +5,7 @@ import { IZkTlsAccount } from "./IZkTlsAccount.sol";
 
 interface IZkTlsGateway {
 
-	error InvalidForwardingAddress();
+	error UnauthorizedAccess();
 	error ResponseExceedsMaxSize();
 	error InsufficientGas();
 	error InvalidRequestHash();	
@@ -39,6 +39,14 @@ interface IZkTlsGateway {
   event RequestTLSCallTemplateField(bytes32 indexed requestId, bytes32 indexed field, bytes value, bool isEncrypted);
 	event RequestTLSCallEnd(bytes32 indexed requestId);
 	event GasUsed(bytes32 indexed requestId, uint256 paiedGas, uint256 gasUsed, uint256 gasPrice);
+
+	function estimateFee(
+		uint256 requestBytes,
+		uint256 maxResponseBytes
+	) external view returns (uint256);
+  
+	function getTokenWeiPerBytes() external view returns (uint256);
+	function setTokenWeiPerBytes(uint256 tokenWeiPerBytes) external;
 
 	function requestTLSCall(
 		string calldata remote,

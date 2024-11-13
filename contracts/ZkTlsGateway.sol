@@ -1,51 +1,74 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
+import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+
 import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
 import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
+import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 
-contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
-	bytes32 private _gatewayHash;
+contract ZkTlsGateway is
+	IZkTlsGateway,
+	Initializable,
+	UUPSUpgradeable,
+	OwnableUpgradeable,
+	ReentrancyGuardUpgradeable
+{
+	address private _manager;
 	address private _verifier;
 	address private _paymentToken;
+	uint256 private _tokenWeiPerBytes;
 	// @dev mapping of requestId to callbackInfo
 	mapping(bytes32 => CallbackInfo) private _requestCallbacks;
 
-	constructor(
-		address forwardingAddress,
+	function initialize(
+		address manager,
+		uint256 tokenWeiPerBytes,
 		address paymentToken,
-		address verifier
-	) {
-		if (forwardingAddress == address(0)) revert InvalidForwardingAddress();
+		address verifier,
+		address owner
+	) public initializer {
+		__UUPSUpgradeable_init();
+		__ReentrancyGuard_init();
+		_manager = manager;
 		_verifier = verifier;
+		_tokenWeiPerBytes = tokenWeiPerBytes;
 		_paymentToken = paymentToken;
-		_gatewayHash = keccak256(abi.encode(address(this)));
+		__Ownable_init(owner);
+	}
+
+	function _authorizeUpgrade(
+		address newImplementation
+	) internal override onlyOwner {
+		// TODO: add upgrade logic if needed
 	}
 
 	function estimateFee(
+		uint256 requestBytes,
 		uint256 maxResponseBytes
-	) external pure returns (uint256) {
-		return maxResponseBytes * 10;
+	) external view returns (uint256) {
+		return (requestBytes + maxResponseBytes) * _tokenWeiPerBytes;
 	}
 
 	function getConfiguration()
 		external
 		view
-		returns (
-			address gatewayHash,
-			address paymentToken,
-			address verifier
-		)
+		returns (address manager, address paymentToken, address verifier)
 	{
-		return (address(this), _paymentToken, _verifier);
+		return (_manager, _paymentToken, _verifier);
 	}
 
-	function _generateRequestId(address account, uint256 nonce) internal view returns (bytes32) {
-		return keccak256(abi.encodePacked(address(this), account, nonce)); 
+	function _generateRequestId(
+		address account,
+		uint256 nonce
+	) internal view returns (bytes32) {
+		return keccak256(abi.encodePacked(address(this), account, nonce));
 	}
 
 	function _populateCallbackInfo(
@@ -85,6 +108,10 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		uint64 nonce,
 		uint256 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
+		if (!IZkTlsManager(_manager).checkAccess(msg.sender, address(this))) {
+			revert UnauthorizedAccess();
+		}
+
 		requestId = _generateRequestId(msg.sender, nonce);
 
 		if (request.fields.length != request.values.length) {
@@ -115,7 +142,9 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		);
 
 		for (uint256 i = 0; i < request.fields.length; i++) {
-			_requestCallbacks[requestId].requestBytes += request.values[i].length;
+			_requestCallbacks[requestId].requestBytes += request
+				.values[i]
+				.length;
 			emit RequestTLSCallTemplateField(
 				requestId,
 				request.fields[i],
@@ -142,6 +171,9 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		uint256 maxResponseBytes,
 		uint64 nonce
 	) public payable returns (bytes32 requestId) {
+		if (!IZkTlsManager(_manager).checkAccess(msg.sender, address(this))) {
+			revert UnauthorizedAccess();
+		}
 		requestId = _generateRequestId(msg.sender, nonce);
 
 		_requestCallbacks[requestId] = _populateCallbackInfo(
@@ -158,7 +190,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 
 		emit RequestTLSCallBegin(
 			requestId,
-			0x0,	// prover is not used
+			0x0, // prover is not used
 			0x0, // requestTemplateHash is not used
 			0x0, // responseTemplateHash is not used
 			remote,
@@ -174,6 +206,22 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		}
 	}
 
+	/**
+	 * @notice Retrieves the current rate of tokens per byte.
+	 * @return uint256 The rate of tokens per byte.
+	 */
+	function getTokenWeiPerBytes() external view returns (uint256) {
+		return _tokenWeiPerBytes;
+	}
+
+	/**
+	 * @notice Updates the rate of tokens per byte.
+	 * @param tokenWeiPerBytes The new rate to set.
+	 */
+	function setTokenWeiPerBytes(uint256 tokenWeiPerBytes) external {
+		_tokenWeiPerBytes = tokenWeiPerBytes;
+	}
+
 	function deliveryResponse(
 		bytes32 requestId,
 		bytes32 requestHash,
@@ -181,7 +229,6 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		// solhint-disable-next-line no-unused-vars
 		bytes calldata proofs
 	) public payable nonReentrant {
-		
 		CallbackInfo memory cb = _requestCallbacks[requestId];
 
 		// Use the custom error instead of require
@@ -190,7 +237,7 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		}
 		// check if requestHash is valid
 		if (cb.requestHash != requestHash) revert InvalidRequestHash();
-		
+
 		uint256 actualUsedBytes = response.length + cb.requestBytes;
 
 		// TODO: call zktls verifier
@@ -206,5 +253,4 @@ contract ZkTlsGateway is IZkTlsGateway, ReentrancyGuard {
 		Address.functionCall(cb.httpClient, data);
 		delete _requestCallbacks[requestId];
 	}
-
 }

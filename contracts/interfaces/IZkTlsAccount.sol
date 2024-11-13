@@ -10,6 +10,7 @@ interface IZkTlsAccount {
 	error PaymentTokenTransferFailed();
 	error GasRefundFailed();
 	error UnauthorizedCaller();
+	error InvalidResponseHandler();
 
 	struct TemplatedRequest {
 		bytes32 requestTemplateHash;

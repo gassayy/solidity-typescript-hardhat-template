@@ -6,11 +6,13 @@ import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
-import { IZkTlsResponseHandler } from "./interfaces/IZkTlsResponseHandler.sol";
-import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
+import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 
-contract SimpleZkTlsAccount is IZkTlsAccount {
-	address private _manager;
+import { IZkTlsResponseHandler } from "./interfaces/IZkTlsResponseHandler.sol";
+
+import "hardhat/console.sol";
+
+contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 	address private _gateway;
 	address private _responseHandler;
 	address private _paymentToken;
@@ -18,19 +20,16 @@ contract SimpleZkTlsAccount is IZkTlsAccount {
 	// used for upgrad
 	uint8 public constant VERSION = 1;
 
-	constructor(
-		address manager,
+	function initialize(
 		address gateway,
 		address paymentToken,
 		address responseHandler
-	) {
-		_manager = manager;
+	) public initializer {
 		_gateway = gateway;
 		_paymentToken = paymentToken;
 		_responseHandler = responseHandler;
-		_nonce = 0;
+		_nonce = 0;	
 	}
-
 	function nextNonce() public view returns (uint256) {
 		return _nonce;
 	}
@@ -125,7 +124,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount {
 			fee
 		);
 
-		uint256 refund = fee - (actualUsedBytes * IZkTlsManager(_manager).getTokenWeiPerBytes());
+		uint256 refund = fee - (actualUsedBytes * IZkTlsGateway(_gateway).getTokenWeiPerBytes());
 
 		// refund unused fee
 		if (refund > 0) {
