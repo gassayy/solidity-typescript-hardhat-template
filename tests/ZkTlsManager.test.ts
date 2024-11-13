@@ -8,6 +8,7 @@ describe("ZkTlsManager", function () {
     let data: any;
     let functions: any;
     let signers: any;
+    
     before(async () => {
         const fixture = await setupFixture();
         contracts = fixture.contracts;

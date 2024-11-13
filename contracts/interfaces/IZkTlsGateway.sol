@@ -36,7 +36,7 @@ interface IZkTlsGateway {
         uint256 maxResponseBytes
     );
 	event RequestTLSCallSegment(bytes32 indexed requestId, bytes data, bool isEncrypted);
-  event RequestTLSCallTemplateField(bytes32 indexed requestId, bytes32 indexed field, bytes value, bool isEncrypted);
+  event RequestTLSCallTemplateField(bytes32 indexed requestId, uint64 indexed field, bytes value, bool isEncrypted);
 	event RequestTLSCallEnd(bytes32 indexed requestId);
 	event GasUsed(bytes32 indexed requestId, uint256 paiedGas, uint256 gasUsed, uint256 gasPrice);
 

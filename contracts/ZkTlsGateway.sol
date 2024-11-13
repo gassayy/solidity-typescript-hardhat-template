@@ -132,8 +132,8 @@ contract ZkTlsGateway is
 
 		emit RequestTLSCallBegin(
 			requestId,
-			request.requestTemplateHash,
 			0x0, // prover is not used
+			request.requestTemplateHash,
 			request.responseTemplateHash,
 			remote,
 			serverName,

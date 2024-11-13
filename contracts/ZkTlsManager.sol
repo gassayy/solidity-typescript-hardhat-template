@@ -87,6 +87,10 @@ contract ZkTlsManager is
 		return _accountBeacon;
 	}
 
+	function authorizeAccount(address account, address gateway) external onlyOwner {
+		_accountToGateway[account] = gateway;
+	}
+
 	/**
 	 * @notice Links a specific account proxy to a gateway address.
 	 * @param accountProxy The address of the account proxy to link.

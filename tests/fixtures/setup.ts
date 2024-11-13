@@ -1,4 +1,6 @@
 import { deployments, ethers, upgrades } from "hardhat";
+import { IZkTlsResponseHandler } from "../../typechain-types";
+
 
 const printContractAddress = async (contracts: { [key: string]: any }) => {
   for (const [key, contract] of Object.entries(contracts)) {
@@ -42,9 +44,6 @@ export const setupFixture = deployments.createFixture(async () => {
     owner.address
   ]);
   await zkTlsGateway.waitForDeployment();
-  // Get the contract factories
-  // const AccountBeacon = await ethers.getContractFactory("AccountBeacon");
-  // const AccountBeaconProxy = await ethers.getContractFactory("AccountBeaconProxy");
 
   // Deploy the implementation contract
   const accountContract = await ethers.getContractFactory("SimpleZkTlsAccount");
@@ -66,22 +65,26 @@ export const setupFixture = deployments.createFixture(async () => {
   // set beacon to zkTlsManager
   await zkTlsManager.setAccountBeacon(await accountBeacon.getAddress());
   await zkTlsManager.setGateway(1, await zkTlsGateway.getAddress());
-
+  await zkTlsManager.authorizeAccount(await accountBeaconProxy.getAddress(), await zkTlsGateway.getAddress());
   // request info and data
   const requestInfo = {
     remote: "https://httpbin.org",
     serverName: "httpbin.org",
-    requestTemplateHash: ethers.randomBytes(32),
-    responseTemplateHash: ethers.randomBytes(32),
-    fields: [ethers.randomBytes(32), ethers.randomBytes(32), ethers.randomBytes(32)],
-    values: [ethers.randomBytes(32), ethers.randomBytes(32), ethers.randomBytes(32)],
+    templatedRequest: {
+      requestTemplateHash: ethers.randomBytes(32),
+      responseTemplateHash: ethers.randomBytes(32),
+      fields: [1 ,2 , 3],
+      values: [ethers.randomBytes(32), ethers.randomBytes(32), ethers.randomBytes(32)],
+    },
     data: [ethers.randomBytes(32), ethers.randomBytes(32), ethers.randomBytes(32)],
   };
   const feeConfig = {
     fee: ethers.parseEther("4"),
-    maxResponseBytes: 1024 * 10,
+    maxResponseBytes: 1024n * 10n, // 10KB
     encryptedKey: ethers.ZeroHash,
   };
+
+  const responseBytes = ethers.randomBytes(256);
 
   const genRequestId = (gatewayAddress: string, accountAddress: string, gatewayNonce: number) => {
     return ethers.keccak256(ethers.solidityPacked(
@@ -104,11 +107,12 @@ export const setupFixture = deployments.createFixture(async () => {
       requestInfo,
       feeConfig,
       tokenWeiPerBytes,
+      responseBytes,
     },
     functions: {
       genRequestId,
       printContractAddress,
-      printSigners
+      printSigners,
     },
     signers: {
       owner,

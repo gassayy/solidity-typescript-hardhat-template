@@ -15,7 +15,7 @@ interface IZkTlsAccount {
 	struct TemplatedRequest {
 		bytes32 requestTemplateHash;
 		bytes32 responseTemplateHash;
-		bytes32[] fields;
+		uint64[] fields;
 		bytes[] values;
 	}
 
