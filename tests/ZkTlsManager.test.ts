@@ -31,31 +31,14 @@ describe("ZkTlsManager", function () {
             const receipt = await tx.wait(); // Wait for the transaction to be mined
             const logs = receipt.logs.map((log: any) => contracts.zkTlsManager.interface.parseLog(log));
             const events = logs.filter((e: any) => e?.name === "SimpleZkTlsAccountCreated");
-            // console.info("events: ", events);
-            // Check if the event was emitted
+            // Check if the event was emitted: gatewayId:1, created gateway address and newly created beacon proxy address
             expect(events.length).to.equal(1);
             expect(events[0].args.gatewayId).to.equal(1);
             expect(events[0].args.gateway).to.equal(await contracts.zkTlsGateway.getAddress());
             expect(events[0].args.beaconProxy).not.to.equal(await contracts.accountBeaconProxy.getAddress());
 
-            // console.log("events[0].args.BeaconProxy: ", events[0].args.BeaconProxy);
-            // await expect(tx)
-            //     .to.emit(contracts.zkTlsManager, 'SimpleZkTlsAccountCreated')
-            //     .withArgs(1, await contracts.zkTlsGateway.getAddress(), "0x94099942864EA81cCF197E9D71ac53310b1468D8");
-
-            const versionProxy = await contracts.accountBeaconProxy.VERSION();
-            console.log("version: ", versionProxy);
-
-            // check if the proxy is ready to use
-            // const beaconProxyAddress = events[0].args.beaconProxy;
-            
-            // const beaconProxy = new ethers.Contract(beaconProxyAddress, contracts.account.interface, signers.owner);
-            
-            // // console.log("beaconProxy: ", beaconProxy.interface);
-            // const tx1 = await beaconProxy.VERSION;
-            // const receipt1 = await tx1.wait();
-            // console.log(receipt1);
-            // expect(version).to.equal(1);
+            // check if the proxy is ready to use by calling VERSION
+            expect(await contracts.accountBeaconProxy.VERSION()).to.equal(1);
         })
     })
 }) 
