@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 
 import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
@@ -20,27 +19,27 @@ contract ZkTlsGateway is
 	OwnableUpgradeable,
 	ReentrancyGuardUpgradeable
 {
-	address private _manager;
-	address private _verifier;
-	address private _paymentToken;
-	uint256 private _tokenWeiPerBytes;
+	address public manager;
+	address public verifier;
+	address public paymentToken;
+	uint256 public tokenWeiPerBytes;
 	// @dev mapping of requestId to callbackInfo
-	mapping(bytes32 => CallbackInfo) private _requestCallbacks;
+	mapping(bytes32 => CallbackInfo) public requestCallbacks;
 
 	function initialize(
-		address manager,
-		uint256 tokenWeiPerBytes,
-		address paymentToken,
-		address verifier,
-		address owner
+		address manager_,
+		uint256 tokenWeiPerBytes_,
+		address paymentToken_,
+		address verifier_,
+		address owner_
 	) public initializer {
 		__UUPSUpgradeable_init();
 		__ReentrancyGuard_init();
-		_manager = manager;
-		_verifier = verifier;
-		_tokenWeiPerBytes = tokenWeiPerBytes;
-		_paymentToken = paymentToken;
-		__Ownable_init(owner);
+		manager = manager_;
+		verifier = verifier_;
+		tokenWeiPerBytes = tokenWeiPerBytes_;
+		paymentToken = paymentToken_;
+		__Ownable_init(owner_);
 	}
 
 	function _authorizeUpgrade(
@@ -53,15 +52,7 @@ contract ZkTlsGateway is
 		uint256 requestBytes,
 		uint256 maxResponseBytes
 	) external view returns (uint256) {
-		return (requestBytes + maxResponseBytes) * _tokenWeiPerBytes;
-	}
-
-	function getConfiguration()
-		external
-		view
-		returns (address manager, address paymentToken, address verifier)
-	{
-		return (_manager, _paymentToken, _verifier);
+		return (requestBytes + maxResponseBytes) * tokenWeiPerBytes;
 	}
 
 	function _generateRequestId(
@@ -108,7 +99,7 @@ contract ZkTlsGateway is
 		uint64 nonce,
 		uint256 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
-		if (!IZkTlsManager(_manager).checkAccess(msg.sender, address(this))) {
+		if (!IZkTlsManager(manager).checkAccess(msg.sender, address(this))) {
 			revert UnauthorizedAccess();
 		}
 
@@ -118,7 +109,7 @@ contract ZkTlsGateway is
 			revert FieldValueLengthMismatch();
 		}
 
-		_requestCallbacks[requestId] = _populateCallbackInfo(
+		requestCallbacks[requestId] = _populateCallbackInfo(
 			requestId,
 			request.requestTemplateHash,
 			request.responseTemplateHash,
@@ -142,7 +133,7 @@ contract ZkTlsGateway is
 		);
 
 		for (uint256 i = 0; i < request.fields.length; i++) {
-			_requestCallbacks[requestId].requestBytes += request
+			requestCallbacks[requestId].requestBytes += request
 				.values[i]
 				.length;
 			emit RequestTLSCallTemplateField(
@@ -171,12 +162,12 @@ contract ZkTlsGateway is
 		uint256 maxResponseBytes,
 		uint64 nonce
 	) public payable returns (bytes32 requestId) {
-		if (!IZkTlsManager(_manager).checkAccess(msg.sender, address(this))) {
+		if (!IZkTlsManager(manager).checkAccess(msg.sender, address(this))) {
 			revert UnauthorizedAccess();
 		}
 		requestId = _generateRequestId(msg.sender, nonce);
 
-		_requestCallbacks[requestId] = _populateCallbackInfo(
+		requestCallbacks[requestId] = _populateCallbackInfo(
 			requestId,
 			0x0, // requestTemplateHash is not used
 			0x0, // responseTemplateHash is not used
@@ -201,25 +192,18 @@ contract ZkTlsGateway is
 
 		for (uint256 i = 0; i < data.length; i++) {
 			bool isEncrypted = i % 2 == 0;
-			_requestCallbacks[requestId].requestBytes += data[i].length;
+			requestCallbacks[requestId].requestBytes += data[i].length;
 			emit RequestTLSCallSegment(requestId, data[i], !isEncrypted);
 		}
 	}
 
-	/**
-	 * @notice Retrieves the current rate of tokens per byte.
-	 * @return uint256 The rate of tokens per byte.
-	 */
-	function getTokenWeiPerBytes() external view returns (uint256) {
-		return _tokenWeiPerBytes;
-	}
 
 	/**
 	 * @notice Updates the rate of tokens per byte.
-	 * @param tokenWeiPerBytes The new rate to set.
+	 * @param tokenWeiPerBytes_ The new rate to set.
 	 */
-	function setTokenWeiPerBytes(uint256 tokenWeiPerBytes) external {
-		_tokenWeiPerBytes = tokenWeiPerBytes;
+	function setTokenWeiPerBytes(uint256 tokenWeiPerBytes_) external {
+		tokenWeiPerBytes = tokenWeiPerBytes_;
 	}
 
 	function deliveryResponse(
@@ -229,7 +213,7 @@ contract ZkTlsGateway is
 		// solhint-disable-next-line no-unused-vars
 		bytes calldata proofs
 	) public payable nonReentrant {
-		CallbackInfo memory cb = _requestCallbacks[requestId];
+		CallbackInfo memory cb = requestCallbacks[requestId];
 
 		// Use the custom error instead of require
 		if (response.length > cb.maxResponseBytes) {
@@ -251,6 +235,6 @@ contract ZkTlsGateway is
 			actualUsedBytes
 		);
 		Address.functionCall(cb.httpClient, data);
-		delete _requestCallbacks[requestId];
+		delete requestCallbacks[requestId];
 	}
 }

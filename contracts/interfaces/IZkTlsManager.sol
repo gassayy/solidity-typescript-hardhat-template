@@ -8,5 +8,5 @@ interface IZkTlsManager {
   error InvalidGatewayId(uint8 gatewayId);
   error InvalidGatewayAddress(address gateway);
 
-  function checkAccess(address account, address gateway) external view returns (bool);
+	function checkAccess(address account, address gateway) external view returns (bool);
 }

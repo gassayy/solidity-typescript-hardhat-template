@@ -12,6 +12,13 @@ interface IZkTlsAccount {
 	error UnauthorizedCaller();
 	error InvalidResponseHandler();
 
+	event PaymentInfo(
+		uint256 prepaidGas,
+		uint256 actualGas,
+		uint256 prepaidFee,
+		uint256 actualFee
+	);
+
 	struct TemplatedRequest {
 		bytes32 requestTemplateHash;
 		bytes32 responseTemplateHash;

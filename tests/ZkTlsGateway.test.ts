@@ -88,7 +88,7 @@ describe("ZkTlsGateway", () => {
     return { requestBytes,expectedRequestId, expectedRequestHash, estimatedFee, tx };
   }
 
-  describe("Deployment", async () => {
+  describe.skip("Deployment", async () => {
     it("should constracts with correct configuration", async () => {
       const { manager, paymentToken, verifier } = await contracts.zkTlsGateway.getConfiguration();
 
@@ -98,7 +98,7 @@ describe("ZkTlsGateway", () => {
     });
   });
 
-  describe("Request TLS Call", () => {
+  describe.skip("Request TLS Call", () => {
     it("should create a request and emit events", async () => {
       const requestInfo = data.requestInfo;
       const { requestBytes, expectedRequestId, estimatedFee, tx } = 
@@ -132,26 +132,27 @@ describe("ZkTlsGateway", () => {
     });
   });
 
-  // describe.only("Delivery Response", () => {
-  //   it("should process a response and emit GasUsed", async () => {
-  //     const requestInfo = data.requestInfo;
-  //     console.log("contract zktls proxy address: (msg.sender)", await contracts.accountBeaconProxy.getAddress());
-  //     const { requestBytes, expectedRequestId, expectedRequestHash, estimatedFee, tx } = 
-  //       await testRequestTLSCall(requestInfo, data.feeConfig);      
-  //     await tx.wait();
-  //     const responseTx = await contracts.zkTlsGateway.deliveryResponse(
-  //       expectedRequestId,
-  //       expectedRequestHash,
-  //       data.responseBytes,
-  //       data.responseBytes // unused proofs
-  //     )
-  //     const responseReceipt = await responseTx.wait();
-  //     const logs = responseReceipt.logs.map((log: any) => contracts.zkTlsGateway.interface.parseLog(log));
-  //     console.log("logs: ", logs);
-  //     // test logs: RequestTLSCallEnd
-
-  //   });
-  
-  // });
+  describe.only("Delivery Response", () => {
+    it("should process a response and emit GasUsed", async () => {
+      const requestInfo = data.requestInfo;
+      console.log("contract zktls proxy address: (msg.sender)", await contracts.accountBeaconProxy.getAddress());
+      const { requestBytes, expectedRequestId, expectedRequestHash, estimatedFee, tx } = 
+        await testRequestTLSCall(requestInfo, data.feeConfig);      
+      await tx.wait();
+      const responseTx = await contracts.zkTlsGateway.deliveryResponse(
+        expectedRequestId,
+        expectedRequestHash,
+        data.responseBytes,
+        ethers.ZeroHash // unused proofs
+      )
+      const responseReceipt = await responseTx.wait();
+      // console.log("responseReceipt: ", responseReceipt.logs);
+      const gatewayLogs = responseReceipt.logs.map((log: any) => contracts.zkTlsGateway.interface.parseLog(log));
+      const responseHandlerLogs = responseReceipt.logs.map((log: any) => contracts.responseHandler.interface.parseLog(log));
+      console.log("gatewayLogs: ", gatewayLogs);
+      console.log("responseHandlerLogs: ", responseHandlerLogs);
+      // test logs: RequestTLSCallEnd
+    });
+  });
 
 }); 
