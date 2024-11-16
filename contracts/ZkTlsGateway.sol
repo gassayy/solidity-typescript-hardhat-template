@@ -22,13 +22,11 @@ contract ZkTlsGateway is
 	address public manager;
 	address public verifier;
 	address public paymentToken;
-	uint256 public tokenWeiPerBytes;
 	// @dev mapping of requestId to callbackInfo
 	mapping(bytes32 => CallbackInfo) public requestCallbacks;
 
 	function initialize(
 		address manager_,
-		uint256 tokenWeiPerBytes_,
 		address paymentToken_,
 		address verifier_,
 		address owner_
@@ -37,7 +35,6 @@ contract ZkTlsGateway is
 		__ReentrancyGuard_init();
 		manager = manager_;
 		verifier = verifier_;
-		tokenWeiPerBytes = tokenWeiPerBytes_;
 		paymentToken = paymentToken_;
 		__Ownable_init(owner_);
 	}
@@ -52,7 +49,7 @@ contract ZkTlsGateway is
 		uint256 requestBytes,
 		uint256 maxResponseBytes
 	) external view returns (uint256) {
-		return (requestBytes + maxResponseBytes) * tokenWeiPerBytes;
+		return (requestBytes + maxResponseBytes) * IZkTlsManager(manager).tokenWeiPerBytes();
 	}
 
 	function _generateRequestId(
@@ -196,15 +193,6 @@ contract ZkTlsGateway is
 			requestCallbacks[requestId].requestBytes += data[i].length;
 			emit RequestTLSCallSegment(requestId, data[i], isEncrypted);
 		}
-	}
-
-
-	/**
-	 * @notice Updates the rate of tokens per byte.
-	 * @param tokenWeiPerBytes_ The new rate to set.
-	 */
-	function setTokenWeiPerBytes(uint256 tokenWeiPerBytes_) external {
-		tokenWeiPerBytes = tokenWeiPerBytes_;
 	}
 
 	function deliveryResponse(

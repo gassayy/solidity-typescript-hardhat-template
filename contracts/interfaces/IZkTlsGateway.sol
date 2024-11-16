@@ -56,8 +56,6 @@ interface IZkTlsGateway {
 		uint256 maxResponseBytes
 	) external view returns (uint256);
 
-	function setTokenWeiPerBytes(uint256 tokenWeiPerBytes) external;
-
 	function requestTLSCall(
 		string calldata remote,
 		string calldata serverName,

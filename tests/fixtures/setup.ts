@@ -16,19 +16,23 @@ const printSigners = async (signers: { [key: string]: any }) => {
 
 export const setupFixture = deployments.createFixture(async () => {
   await deployments.fixture();
+  // basic setup constant
+  const callbackBaseGas = ethers.parseUnits("200", "gwei");
+  const tokenWeiPerBytes = ethers.parseUnits("1", "gwei");
   // set up signers
-  const [owner, deployer, accountBeaconAdmin, applicationUser1, applicationUser2] = await ethers.getSigners();
+  const [owner, deployer, accountBeaconAdmin, applicationUser1, applicationUser2, feeReceiver] = await ethers.getSigners();
   const paymentToken = await ethers.deployContract("BasicERC20", ["Payment Token", "PT", owner.address]);
   const verifier = await ethers.deployContract("MockVerifier");
   const responseHandler = await ethers.deployContract("MockResponseHandler");
   const responseHandler2 = await ethers.deployContract("MockResponseHandler");
-  const tokenWeiPerBytes = ethers.parseUnits("1", "gwei");
   // deploy ZkTlsManager
   const ZkTlsManagerFactory = await ethers.getContractFactory("ZkTlsManager");
   const zkTlsManager = await upgrades.deployProxy(
     ZkTlsManagerFactory, [
-    await paymentToken.getAddress(),
-    accountBeaconAdmin.address,
+    callbackBaseGas,
+    tokenWeiPerBytes,
+    await feeReceiver.getAddress(),
+    ethers.ZeroAddress, // default account beacon in managersss
     owner.address
   ], { initializer: "initialize" }
   );
@@ -38,7 +42,6 @@ export const setupFixture = deployments.createFixture(async () => {
   const zkTlsGateway = await upgrades.deployProxy(
     zkTlsGatewayFactory, [
     await zkTlsManager.getAddress(),
-    BigInt(tokenWeiPerBytes.toString()),
     await paymentToken.getAddress(),
     await verifier.getAddress(),
     owner.address
@@ -55,17 +58,17 @@ export const setupFixture = deployments.createFixture(async () => {
     await accountBeacon.getAddress(),
     accountContract,
     [
+      await zkTlsManager.getAddress(),
       await zkTlsGateway.getAddress(),
       await paymentToken.getAddress(),
-      await responseHandler.getAddress()
+      await responseHandler.getAddress(),
+      await applicationUser1.getAddress()
     ]
   );
   await accountBeaconProxy.waitForDeployment();
   console.log("Beacon Proxy deployed to:", await accountBeaconProxy.getAddress());
   // set beacon to zkTlsManager
   await zkTlsManager.setAccountBeacon(await accountBeacon.getAddress());
-  await zkTlsManager.setGateway(1, await zkTlsGateway.getAddress());
-  await zkTlsManager.authorizeAccount(await accountBeaconProxy.getAddress(), await zkTlsGateway.getAddress());
   // token set up
   await paymentToken.mint(
     await accountBeaconProxy.getAddress(), 
@@ -114,6 +117,7 @@ export const setupFixture = deployments.createFixture(async () => {
     data: {
       requestInfo,
       feeConfig,
+      callbackBaseGas,
       tokenWeiPerBytes,
       responseBytes: ethers.randomBytes(1024 * 60),
     },
