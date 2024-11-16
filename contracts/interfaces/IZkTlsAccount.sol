@@ -13,10 +13,9 @@ interface IZkTlsAccount {
 	error InvalidResponseHandler();
 
 	event PaymentInfo(
-		uint256 prepaidGas,
-		uint256 actualGas,
-		uint256 prepaidFee,
-		uint256 actualFee
+		uint256 usedGas,
+		uint256 lockedFee,
+		uint256 usedFee
 	);
 
 	struct TemplatedRequest {
@@ -50,8 +49,7 @@ interface IZkTlsAccount {
 		bytes32 requestId,
 		bytes32 requestHash,
 		bytes calldata response,
-		uint256 paidGas,
-		uint256 fee,
+		uint256 lockedFee,
 		uint256 actualUsedBytes
 	) external payable;
 

@@ -50,7 +50,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 	) external payable returns (bytes32 requestId) {
 		// check payment token balance and gas
 		_lockFee(fee);
-		if (_estimateCallbackGas(maxResponseBytes) > msg.value)
+		if (estimateCallbackGas(maxResponseBytes) > msg.value)
 			revert InsufficientPaidGas();
 		// send request to gateway
 		requestId = IZkTlsGateway(gateway).requestTLSCall(
@@ -78,7 +78,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 	) public payable returns (bytes32 requestId) {	
 		// check payment token balance and gas
 		_lockFee(fee);
-		if (_estimateCallbackGas(maxResponseBytes) > msg.value)
+		if (estimateCallbackGas(maxResponseBytes) > msg.value)
 			revert InsufficientPaidGas();
 		// send request to gateway
 		requestId = IZkTlsGateway(gateway).requestTLSCallTemplate(
@@ -100,8 +100,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		bytes32 requestId,
 		bytes32 requestHash,
 		bytes calldata response,
-		uint256 paidGas,
-		uint256 fee,
+		uint256 lockedFee,
 		uint256 actualUsedBytes
 	) external payable {
 		if (msg.sender != gateway) revert UnauthorizedCaller();
@@ -114,7 +113,8 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			response
 		);
 		// TODO:Use low-level call with gas limit
-		(bool success, bytes memory returndata) = responseHandler.call{gas: paidGas}(data);
+		(bool success, bytes memory returndata) = responseHandler.call(data);
+		//(bool success, bytes memory returndata) = responseHandler.call{gas: paidGas}(data);
 		if (!success) {
 			// If the call reverts, bubble up the revert reason if there is one
 			if (returndata.length > 0) {
@@ -128,27 +128,35 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		}
 		
 		uint256 usedGas = start - gasleft();
-		uint256 paidFee = _transferFee(paidGas, usedGas, actualUsedBytes);
-		emit PaymentInfo(paidGas, usedGas, fee, paidFee);
+		// console.log("-----usedGas-----");
+		// console.log(usedGas);
+		// console.log("-----paidGas-----");
+		// console.log(paidGas);
+		uint256 usedFee = _transferFee(usedGas, lockedFee, actualUsedBytes);
+		// uint256 paidFee = 1000;
+		emit PaymentInfo(usedGas, lockedFee, usedFee);
 	}
 
 	function _transferFee(
-		uint256 paidGas,
 		uint256 usedGas,
-		uint256 actualUsedBytes
-	) internal returns (uint256 paidFee) {
-		if (paidGas < usedGas) revert InsufficientPaidGas();
-
-		paidFee =
-			actualUsedBytes *
+		uint256 lockedFee,
+		uint256 usedBytes
+	) internal returns (uint256 usedFee) {
+		if (address(this).balance < usedGas) revert InsufficientPaidGas();
+		usedFee =
+			usedBytes *
 			IZkTlsManager(manager).tokenWeiPerBytes();
-		// transfer fee to gateway
+		// transfer fee and used gass to fee receiver
 		SafeERC20.safeTransfer(
 			IERC20(paymentToken),
 			IZkTlsManager(manager).feeReceiver(),
-			paidFee
+			usedFee
 		);
-		lockedAmount -= paidFee;
+		lockedAmount -= lockedFee;
+		Address.sendValue(
+			payable(IZkTlsManager(manager).feeReceiver()),
+			usedGas
+		);
 	}
 
 	function _lockFee(uint256 fee) internal {
@@ -157,12 +165,14 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		lockedAmount += fee;
 	}
 
-	function _estimateCallbackGas(
+	function estimateCallbackGas(
 		uint256 maxResponseBytes
-	) internal view returns (uint256) {
+	) public view returns (uint256) {
 		return
 			IZkTlsManager(manager).callbackBaseGas() +
 			maxResponseBytes * IZkTlsManager(manager).CALLBACK_UNIT_GAS();
 	}
+
+	receive() external payable {}
 
 }

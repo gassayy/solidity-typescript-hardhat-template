@@ -24,10 +24,13 @@ describe("ZkTlsGateway", () => {
     requestHash: string,
     responseBytes: any
   ) => {
-    const gasEstimate = await responseHandler.handleResponse.estimateGas(
-      requestId,
-      requestHash,
-      responseBytes
+    // const gasEstimate = await responseHandler.handleResponse.estimateGas(
+    //   requestId,
+    //   requestHash,
+    //   responseBytes
+    // );
+    const gasEstimate = await contracts.accountBeaconProxy.estimateCallbackGas(
+      responseBytes.length
     );
     console.log("estimate gas: ", gasEstimate); // 1516093n for none-loop, 3506127n for 5000-iterations
     return gasEstimate;
@@ -79,6 +82,7 @@ describe("ZkTlsGateway", () => {
         requestInfo.remote,
         requestInfo.serverName,
         feeConfig.encryptedKey,
+        false,
         requestInfo.templatedRequest,
         estimatedFee,
         feeConfig.maxResponseBytes,
@@ -88,17 +92,15 @@ describe("ZkTlsGateway", () => {
     return { requestBytes,expectedRequestId, expectedRequestHash, estimatedFee, tx };
   }
 
-  describe.skip("Deployment", async () => {
+  describe("Deployment", async () => {
     it("should constracts with correct configuration", async () => {
-      const { manager, paymentToken, verifier } = await contracts.zkTlsGateway.getConfiguration();
-
-      expect(manager).to.equal(await contracts.zkTlsManager.getAddress());
-      expect(paymentToken).to.equal(await contracts.paymentToken.getAddress());
-      expect(verifier).to.equal(await contracts.verifier.getAddress());
+      expect(await contracts.zkTlsGateway.manager()).to.equal(await contracts.zkTlsManager.getAddress());
+      expect(await contracts.zkTlsGateway.paymentToken()).to.equal(await contracts.paymentToken.getAddress());
+      expect(await contracts.zkTlsGateway.verifier()).to.equal(await contracts.verifier.getAddress());
     });
   });
 
-  describe.skip("Request TLS Call", () => {
+  describe("Request TLS Call", () => {
     it("should create a request and emit events", async () => {
       const requestInfo = data.requestInfo;
       const { requestBytes, expectedRequestId, estimatedFee, tx } = 

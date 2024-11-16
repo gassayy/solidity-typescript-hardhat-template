@@ -12,6 +12,7 @@ import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
 import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
 import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 
+import "hardhat/console.sol";
 contract ZkTlsGateway is
 	IZkTlsGateway,
 	Initializable,
@@ -66,7 +67,6 @@ contract ZkTlsGateway is
 		uint256 requestBytes,
 		uint256 fee,
 		uint64 nonce,
-		uint256 paidGas,
 		uint256 maxResponseBytes,
 		bytes calldata encryptedKey
 	) internal view returns (CallbackInfo memory cb) {
@@ -76,7 +76,6 @@ contract ZkTlsGateway is
 			maxResponseBytes: maxResponseBytes,
 			nonce: nonce,
 			fee: fee,
-			paidGas: paidGas,
 			requestHash: keccak256(
 				abi.encode(requestId, msg.sender, encryptedKey, nonce)
 			),
@@ -95,7 +94,7 @@ contract ZkTlsGateway is
 		uint64 nonce,
 		uint256 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
-
+		console.logAddress(msg.sender);
 		if (!IZkTlsManager(manager).hasAccess(msg.sender)) {
 			revert UnauthorizedAccess();
 		}
@@ -113,7 +112,6 @@ contract ZkTlsGateway is
 			0, // init requestBytes
 			fee,
 			nonce,
-			msg.value, // paidGas amount
 			maxResponseBytes,
 			encryptedKey
 		);
@@ -173,7 +171,6 @@ contract ZkTlsGateway is
 			0, // init requestBytes as 0
 			fee,
 			nonce,
-			msg.value, // paidGas amount
 			maxResponseBytes,
 			encryptedKey
 		);
@@ -215,11 +212,10 @@ contract ZkTlsGateway is
 
 		// TODO: call zktls verifier
 		bytes memory data = abi.encodeWithSignature(
-			"deliveryResponse(bytes32,bytes32,bytes,uint256,uint256,uint256)",
+			"deliveryResponse(bytes32,bytes32,bytes,uint256,uint256)",
 			requestId,
 			requestHash,
 			response,
-			cb.paidGas,
 			cb.fee,
 			actualUsedBytes
 		);

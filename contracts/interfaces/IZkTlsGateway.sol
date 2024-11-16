@@ -15,7 +15,6 @@ interface IZkTlsGateway {
 		uint256 requestBytes;
 		uint256 maxResponseBytes;
 		uint256 fee;
-		uint256 paidGas;
 		uint256 nonce;
 		bytes32 requestHash;
 		bytes32 requestTemplateHash;

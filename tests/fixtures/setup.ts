@@ -17,7 +17,7 @@ const printSigners = async (signers: { [key: string]: any }) => {
 export const setupFixture = deployments.createFixture(async () => {
   await deployments.fixture();
   // basic setup constant
-  const callbackBaseGas = ethers.parseUnits("200", "gwei");
+  const callbackBaseGas = ethers.parseUnits("2000", "gwei");
   const tokenWeiPerBytes = ethers.parseUnits("1", "gwei");
   // set up signers
   const [owner, deployer, accountBeaconAdmin, applicationUser1, applicationUser2, feeReceiver] = await ethers.getSigners();
@@ -69,12 +69,17 @@ export const setupFixture = deployments.createFixture(async () => {
   console.log("Beacon Proxy deployed to:", await accountBeaconProxy.getAddress());
   // set beacon to zkTlsManager
   await zkTlsManager.setAccountBeacon(await accountBeacon.getAddress());
-  // token set up
+  await zkTlsManager.setProxyAccount(await accountBeaconProxy.getAddress(), true);
+  // token transfer
   await paymentToken.mint(
     await accountBeaconProxy.getAddress(), 
     ethers.parseEther("1000000")
   );
-
+  await owner.sendTransaction({
+    to: await accountBeaconProxy.getAddress(),
+    value: ethers.parseEther("1")
+  });
+  console.log("accountBeaconProxy balance: ", accountBeaconProxy);
   console.log("token balance of accountBeaconProxy: ", 
     await accountBeaconProxy.getAddress(),
     await paymentToken.balanceOf(await accountBeaconProxy.getAddress())
