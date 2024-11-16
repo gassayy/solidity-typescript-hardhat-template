@@ -74,9 +74,7 @@ contract ZkTlsGateway is
 		bytes calldata encryptedKey
 	) internal view returns (CallbackInfo memory cb) {
 		cb = CallbackInfo({
-			// solhint-disable-next-line avoid-tx-origin
-			caller: tx.origin,
-			httpClient: msg.sender,
+			proxyAccount: msg.sender,
 			requestBytes: requestBytes,
 			maxResponseBytes: maxResponseBytes,
 			nonce: nonce,
@@ -94,12 +92,14 @@ contract ZkTlsGateway is
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
+		bool isEncrypted,
 		IZkTlsAccount.TemplatedRequest calldata request,
 		uint256 fee,
 		uint64 nonce,
 		uint256 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
-		if (!IZkTlsManager(manager).checkAccess(msg.sender, address(this))) {
+
+		if (!IZkTlsManager(manager).hasAccess(msg.sender)) {
 			revert UnauthorizedAccess();
 		}
 
@@ -123,7 +123,7 @@ contract ZkTlsGateway is
 
 		emit RequestTLSCallBegin(
 			requestId,
-			0x0, // prover is not used
+			0x0, // prover is not used, passed by manager in the future
 			request.requestTemplateHash,
 			request.responseTemplateHash,
 			remote,
@@ -140,9 +140,10 @@ contract ZkTlsGateway is
 				requestId,
 				request.fields[i],
 				request.values[i],
-				encryptedKey.length > 0 ? true : false
+				isEncrypted
 			);
 		}
+		
 	}
 
 	/**
@@ -157,12 +158,13 @@ contract ZkTlsGateway is
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
+		bool isEncrypted,
 		bytes[] calldata data,
 		uint256 fee,
 		uint256 maxResponseBytes,
 		uint64 nonce
 	) public payable returns (bytes32 requestId) {
-		if (!IZkTlsManager(manager).checkAccess(msg.sender, address(this))) {
+		if (!IZkTlsManager(manager).hasAccess(msg.sender)) {
 			revert UnauthorizedAccess();
 		}
 		requestId = _generateRequestId(msg.sender, nonce);
@@ -191,9 +193,8 @@ contract ZkTlsGateway is
 		);
 
 		for (uint256 i = 0; i < data.length; i++) {
-			bool isEncrypted = i % 2 == 0;
 			requestCallbacks[requestId].requestBytes += data[i].length;
-			emit RequestTLSCallSegment(requestId, data[i], !isEncrypted);
+			emit RequestTLSCallSegment(requestId, data[i], isEncrypted);
 		}
 	}
 
@@ -234,7 +235,7 @@ contract ZkTlsGateway is
 			cb.fee,
 			actualUsedBytes
 		);
-		Address.functionCall(cb.httpClient, data);
+		Address.functionCall(cb.proxyAccount, data);
 		delete requestCallbacks[requestId];
 	}
 }

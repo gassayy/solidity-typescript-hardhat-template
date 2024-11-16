@@ -8,5 +8,18 @@ interface IZkTlsManager {
   error InvalidGatewayId(uint8 gatewayId);
   error InvalidGatewayAddress(address gateway);
 
-	function checkAccess(address account, address gateway) external view returns (bool);
+  event UpgradeAuthorized(address indexed newImplementation);
+
+	event SimpleZkTlsAccountCreated(
+		address indexed gateway,
+		address indexed beaconProxy
+	);
+
+	// dynamic types getters
+	function CALLBACK_UNIT_GAS() external view returns (uint256);
+	function tokenWeiPerBytes() external view returns (uint256);
+	function feeReceiver() external view returns (address);
+	function callbackBaseGas() external view returns (uint256);
+
+	function hasAccess(address account) external view returns (bool);
 }

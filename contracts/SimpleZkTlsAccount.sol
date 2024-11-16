@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
 import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
-import { ZkTlsManager } from "./ZkTlsManager.sol";
+import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -20,7 +20,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 	address public paymentToken;
 	address public refundAddress;
 	uint64 public nonce;
-	uint256 public lockedAmount;
+	uint256 public lockedAmount; // payment token locked amount
 	// used for upgrad
 	uint8 public constant VERSION = 1;
 
@@ -43,6 +43,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
+		bool isEncryptedKey,
 		bytes[] calldata data,
 		uint256 fee,
 		uint256 maxResponseBytes
@@ -56,6 +57,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			remote,
 			serverName,
 			encryptedKey,
+			isEncryptedKey,
 			data,
 			fee,
 			maxResponseBytes,
@@ -69,6 +71,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
+		bool isEncryptedKey,
 		TemplatedRequest calldata request,
 		uint256 fee,
 		uint256 maxResponseBytes
@@ -82,6 +85,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			remote,
 			serverName,
 			encryptedKey,
+			isEncryptedKey,
 			request,
 			fee,
 			nonce,
@@ -98,7 +102,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		bytes calldata response,
 		uint256 paidGas,
 		uint256 fee,
-		uint256 actualUsedBytes // response bytes + response bytes
+		uint256 actualUsedBytes
 	) external payable {
 		if (msg.sender != gateway) revert UnauthorizedCaller();
 
@@ -109,7 +113,20 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			requestHash,
 			response
 		);
-		Address.functionCall(responseHandler, data);
+		// TODO:Use low-level call with gas limit
+		(bool success, bytes memory returndata) = responseHandler.call{gas: paidGas}(data);
+		if (!success) {
+			// If the call reverts, bubble up the revert reason if there is one
+			if (returndata.length > 0) {
+				assembly {
+					let returndata_size := mload(returndata)
+					revert(add(32, returndata), returndata_size)
+				}
+			} else {
+				revert("Call failed");
+			}
+		}
+		
 		uint256 usedGas = start - gasleft();
 		uint256 paidFee = _transferFee(paidGas, usedGas, actualUsedBytes);
 		emit PaymentInfo(paidGas, usedGas, fee, paidFee);
@@ -124,15 +141,14 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 
 		paidFee =
 			actualUsedBytes *
-			IZkTlsGateway(gateway).getTokenWeiPerBytes();
+			IZkTlsManager(manager).tokenWeiPerBytes();
 		// transfer fee to gateway
-		SafeERC20.safeTransfer(IERC20(paymentToken), gateway, paidFee);
-
-		// refund unused gas
-		if (usedGas <= paidGas) {
-			(bool sent, ) = gateway.call{ value: paidGas - usedGas }("");
-			if (!sent) revert GasRefundFailed();
-		}
+		SafeERC20.safeTransfer(
+			IERC20(paymentToken),
+			IZkTlsManager(manager).feeReceiver(),
+			paidFee
+		);
+		lockedAmount -= paidFee;
 	}
 
 	function _lockFee(uint256 fee) internal {
@@ -145,8 +161,8 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		uint256 maxResponseBytes
 	) internal view returns (uint256) {
 		return
-			ZkTlsManager(manager).callbackBaseGas() +
-			maxResponseBytes * ZkTlsManager(manager).CALLBACK_UNIT_GAS();
+			IZkTlsManager(manager).callbackBaseGas() +
+			maxResponseBytes * IZkTlsManager(manager).CALLBACK_UNIT_GAS();
 	}
 
 }
