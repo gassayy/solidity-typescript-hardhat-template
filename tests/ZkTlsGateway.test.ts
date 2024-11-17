@@ -40,12 +40,11 @@ describe("ZkTlsGateway", () => {
     ethers.keccak256(ethers.solidityPacked(
       ["address", "address", "uint256"], [gatewayAddress, accountProxyAddress, gatewayNonce]
     ));
-  
-  const computeRequestHash = (requestId: string, sender: string, encryptedKey: string, nonce: number) => {
-    console.log("ts inputs: ", requestId, sender, encryptedKey, nonce);
+
+  const computeRequestHash = (remote: string, serverName: string, encryptedKey: string, requestTemplateHash: any, fields: any, values: any) => {
     return ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(
-      ["bytes32", "address", "bytes", "uint256"], 
-      [requestId, sender, encryptedKey, nonce]
+      ["string", "string", "bytes", "bytes32", "uint64[]", "bytes[]"],
+      [remote, serverName, encryptedKey, requestTemplateHash, fields, values]
     ));
   }
 
@@ -65,10 +64,12 @@ describe("ZkTlsGateway", () => {
       nonce
     );
     const expectedRequestHash = computeRequestHash(
-      expectedRequestId,
-      (await contracts.accountBeaconProxy.getAddress()).toLowerCase(),
+      requestInfo.remote,
+      requestInfo.serverName,
       feeConfig.encryptedKey,
-      nonce
+      requestInfo.templatedRequest.requestTemplateHash,
+      requestInfo.templatedRequest.fields,
+      requestInfo.templatedRequest.values
     );
     const paidGas = await responseHandlerGasEstimation(
       contracts.responseHandler,
@@ -86,10 +87,10 @@ describe("ZkTlsGateway", () => {
         requestInfo.templatedRequest,
         estimatedFee,
         feeConfig.maxResponseBytes,
-      { value: paidGas * 2n }
-    );
+        { value: paidGas * 2n }
+      );
 
-    return { requestBytes,expectedRequestId, expectedRequestHash, estimatedFee, tx };
+    return { requestBytes, expectedRequestId, expectedRequestHash, estimatedFee, tx };
   }
 
   describe("Deployment", async () => {
@@ -103,9 +104,9 @@ describe("ZkTlsGateway", () => {
   describe("Request TLS Call", () => {
     it("should create a request and emit events", async () => {
       const requestInfo = data.requestInfo;
-      const { requestBytes, expectedRequestId, estimatedFee, tx } = 
+      const { requestBytes, expectedRequestId, estimatedFee, tx } =
         await testRequestTLSCall(data.requestInfo, data.feeConfig);
-      
+
       // test fee estimation
       expect(estimatedFee).to.equal(
         (BigInt(requestBytes) + BigInt(data.feeConfig.maxResponseBytes)) *
@@ -138,8 +139,8 @@ describe("ZkTlsGateway", () => {
     it("should process a response and emit GasUsed", async () => {
       const requestInfo = data.requestInfo;
       console.log("contract zktls proxy address: (msg.sender)", await contracts.accountBeaconProxy.getAddress());
-      const { requestBytes, expectedRequestId, expectedRequestHash, estimatedFee, tx } = 
-        await testRequestTLSCall(requestInfo, data.feeConfig);      
+      const { requestBytes, expectedRequestId, expectedRequestHash, estimatedFee, tx } =
+        await testRequestTLSCall(requestInfo, data.feeConfig);
       await tx.wait();
       const responseTx = await contracts.zkTlsGateway.deliveryResponse(
         expectedRequestId,

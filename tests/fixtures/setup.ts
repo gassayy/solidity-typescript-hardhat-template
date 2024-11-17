@@ -100,6 +100,7 @@ export const setupFixture = deployments.createFixture(async () => {
     fee: ethers.parseEther("4"),
     maxResponseBytes: 1024n * 100n, // 100KB
     encryptedKey: ethers.ZeroHash,
+    enableEncryption: false,
   };
 
   const genRequestId = (gatewayAddress: string, accountAddress: string, gatewayNonce: number) => {
