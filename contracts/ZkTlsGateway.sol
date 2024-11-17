@@ -14,8 +14,6 @@ import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
 import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
 import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 
-import "hardhat/console.sol";
-
 contract ZkTlsGateway is
 	IZkTlsGateway,
 	Initializable,
@@ -181,12 +179,6 @@ contract ZkTlsGateway is
 		uint256 actualUsedBytes = response.length + cb.requestBytes;
 		// encode the public values and call the verifier
 		bytes memory publicValues = abi.encodePacked(requestHash, response);
-		
-		// console.log("publicValues: ");
-		// console.logBytes(publicValues);
-		console.log("proofs: ");
-		console.logBytes(proofs);
-		console.log(proofs.length);
 		
 		ISP1Verifier(provers[cb.proverId].verifierAddress).verifyProof(
 			provers[cb.proverId].programVKey,

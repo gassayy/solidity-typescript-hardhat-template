@@ -40,6 +40,7 @@ contract ZkTlsManager is
 		uint256 tokenWeiPerBytes_,
 		address feeReceiver_,
 		address accountBeacon_,
+		address paymentToken_,
 		address owner_
 	) public initializer {
 		__UUPSUpgradeable_init();
@@ -48,6 +49,7 @@ contract ZkTlsManager is
 		tokenWeiPerBytes = tokenWeiPerBytes_;
 		feeReceiver = feeReceiver_;
 		accountBeacon = accountBeacon_;
+		paymentToken = paymentToken_;
 	}
 	function hasAccess(address account) external view returns (bool) {
 		return proxyAccounts[account];

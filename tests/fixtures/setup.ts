@@ -35,7 +35,8 @@ export const setupFixture = deployments.createFixture(async () => {
     callbackBaseGas,
     tokenWeiPerBytes,
     await feeReceiver.getAddress(),
-    ethers.ZeroAddress, // default account beacon in managersss
+    ethers.ZeroAddress, // default account beacon
+    await paymentToken.getAddress(),
     owner.address
   ], { initializer: "initialize" }
   );

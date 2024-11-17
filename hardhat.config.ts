@@ -1,5 +1,7 @@
 import "@nomicfoundation/hardhat-toolbox"
 import "@openzeppelin/hardhat-upgrades"
+import * as dotenv from "dotenv"
+dotenv.config()
 
 import { HardhatUserConfig } from "hardhat/config"
 
@@ -27,6 +29,7 @@ import "./tasks/erc1155/contract-uri"
 
 const MAINNET_RPC_URL = process.env.MAINNET_RPC_URL || "https://eth-mainnet.g.alchemy.com/v2/your-api-key"
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || "https://eth-sepolia.g.alchemy.com/v2/your-api-key"
+const HOLESKY_RPC_URL = process.env.HOLESKY_RPC_URL || "https://eth-holesky.g.alchemy.com/v2/your-api-key"
 const MATIC_RPC_URL = process.env.MATIC_RPC_URL || "https://polygon-mainnet.g.alchemy.com/v2/your-api-key"
 const MUMBAI_RPC_URL = process.env.MUMBAI_RPC_URL || "https://polygon-mumbai.g.alchemy.com/v2/v3/your-api-key"
 
@@ -57,6 +60,10 @@ const config: HardhatUserConfig = {
 			url: SEPOLIA_RPC_URL,
 			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : { mnemonic: MNEMONIC },
 		},
+		holesky: {
+			url: HOLESKY_RPC_URL,
+			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : { mnemonic: MNEMONIC },
+		},
 		matic: {
 			url: MATIC_RPC_URL,
 			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : { mnemonic: MNEMONIC },
@@ -65,6 +72,10 @@ const config: HardhatUserConfig = {
 			url: MUMBAI_RPC_URL,
 			accounts: PRIVATE_KEY ? [PRIVATE_KEY] : { mnemonic: MNEMONIC },
 		},
+		goerli: {
+			url: `https://goerli.infura.io/v3/${process.env.INFURA_API_KEY}`,
+			accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+		},
 	},
 	etherscan: {
 		// Your API key for Etherscan
@@ -72,18 +83,28 @@ const config: HardhatUserConfig = {
 		apiKey: {
 			mainnet: ETHERSCAN_API_KEY,
 			sepolia: ETHERSCAN_API_KEY,
+			holesky: ETHERSCAN_API_KEY,
 			// Polygon
 			polygon: POLYGONSCAN_API_KEY,
 			polygonMumbai: POLYGONSCAN_API_KEY,
 		},
+		customChains: [
+			{
+				network: "holesky",
+				chainId: 17000,
+				urls: {
+					apiURL: "https://api-holesky.etherscan.io/api",
+					browserURL: "https://holesky.etherscan.io"
+				}
+			}
+		]
 	},
 	namedAccounts: {
 		deployer: {
 			default: 0, // here this will by default take the first account as deployer
-			mainnet: 0, // similarly on mainnet it will take the first account as deployer.
 		},
 		owner: {
-			default: 0,
+			default: 1, // here this will by default take the second account as owner
 		},
 	},
 	solidity: {
@@ -95,6 +116,9 @@ const config: HardhatUserConfig = {
 				},
 			},
 		],
+	},
+	sourcify: {
+		enabled: false
 	},
 }
 
