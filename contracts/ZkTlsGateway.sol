@@ -8,9 +8,13 @@ import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
+import { ISP1Verifier } from "./interfaces/ISP1Verifier.sol";
+
 import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
 import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
 import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
+
+import "hardhat/console.sol";
 
 contract ZkTlsGateway is
 	IZkTlsGateway,
@@ -20,21 +24,20 @@ contract ZkTlsGateway is
 	ReentrancyGuardUpgradeable
 {
 	address public manager;
-	address public verifier;
 	address public paymentToken;
 	// @dev mapping of requestId to callbackInfo
 	mapping(bytes32 => CallbackInfo) public requestCallbacks;
+	// @dev mapping of prover id to prover info
+	mapping(bytes32 => ProverInfo) public provers;
 
 	function initialize(
 		address manager_,
 		address paymentToken_,
-		address verifier_,
 		address owner_
 	) public initializer {
 		__UUPSUpgradeable_init();
 		__ReentrancyGuard_init();
 		manager = manager_;
-		verifier = verifier_;
 		paymentToken = paymentToken_;
 		__Ownable_init(owner_);
 	}
@@ -45,6 +48,13 @@ contract ZkTlsGateway is
 		// TODO: add upgrade logic if needed
 	}
 
+	function setProver(bytes32 proverId, address verifierAddress_, bytes32 programVKey_) external onlyOwner {
+		provers[proverId] = ProverInfo({
+			verifierAddress: verifierAddress_,
+			programVKey: programVKey_
+		});
+	}
+	
 	function estimateFee(
 		uint256 requestBytes,
 		uint256 maxResponseBytes
@@ -60,6 +70,7 @@ contract ZkTlsGateway is
 	}
 
 	function _populateCallbackInfo(
+		bytes32 proverId,
 		bytes32 requestHash,
 		bytes32 requestTemplateHash,
 		bytes32 responseTemplateHash,
@@ -69,6 +80,7 @@ contract ZkTlsGateway is
 		uint256 maxResponseBytes
 	) internal view returns (CallbackInfo memory cb) {
 		cb = CallbackInfo({
+			proverId: proverId,
 			proxyAccount: msg.sender,
 			requestBytes: requestBytes,
 			maxResponseBytes: maxResponseBytes,
@@ -81,6 +93,7 @@ contract ZkTlsGateway is
 	}
 
 	function requestTLSCallTemplate(
+		bytes32 proverId,
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
@@ -112,6 +125,7 @@ contract ZkTlsGateway is
 		);
 
 		requestCallbacks[requestId] = _populateCallbackInfo(
+			proverId,
 			requestHash,
 			request.requestTemplateHash,
 			request.responseTemplateHash,
@@ -123,7 +137,7 @@ contract ZkTlsGateway is
 
 		emit RequestTLSCallBegin(
 			requestId,
-			0x0, // prover is not used, passed by manager in the future
+			proverId,
 			request.requestTemplateHash,
 			request.responseTemplateHash,
 			remote,
@@ -146,61 +160,10 @@ contract ZkTlsGateway is
 		
 	}
 
-	/**
-	 * @dev Initiates a request through the ZK-TLS gateway
-	 * @param remote The URL endpoint to send the request to
-	 * @param serverName The server name for TLS verification
-	 * @param encryptedKey The encrypted session key
-	 * @param data The request data
-	 * @return requestId Unique identifier for the request
-	 */
-	function requestTLSCall(
-		string calldata remote,
-		string calldata serverName,
-		bytes calldata encryptedKey,
-		bool enableEncryption,
-		bytes[] calldata data,
-		uint256 fee,
-		uint256 maxResponseBytes,
-		uint64 nonce
-	) public payable returns (bytes32 requestId) {
-		if (!IZkTlsManager(manager).hasAccess(msg.sender)) {
-			revert UnauthorizedAccess();
-		}
-		requestId = _generateRequestId(msg.sender, nonce);
-
-		requestCallbacks[requestId] = _populateCallbackInfo(
-			0x0, // requestHash is not used
-			0x0, // requestTemplateHash is not used
-			0x0, // responseTemplateHash is not used
-			0, // init requestBytes as 0
-			fee,
-			nonce,
-			maxResponseBytes
-		);
-
-		emit RequestTLSCallBegin(
-			requestId,
-			0x0, // prover is not used
-			0x0, // requestTemplateHash is not used
-			0x0, // responseTemplateHash is not used
-			remote,
-			serverName,
-			encryptedKey,
-			maxResponseBytes
-		);
-
-		for (uint256 i = 0; i < data.length; i++) {
-			requestCallbacks[requestId].requestBytes += data[i].length;
-			emit RequestTLSCallSegment(requestId, data[i], enableEncryption);
-		}
-	}
-
 	function deliveryResponse(
 		bytes32 requestId,
 		bytes32 requestHash,
 		bytes calldata response,
-		// solhint-disable-next-line no-unused-vars
 		bytes calldata proofs
 	) public payable nonReentrant {
 		CallbackInfo memory cb = requestCallbacks[requestId];
@@ -209,12 +172,28 @@ contract ZkTlsGateway is
 		if (response.length > cb.maxResponseBytes) {
 			revert ResponseExceedsMaxSize();
 		}
+		if (provers[cb.proverId].verifierAddress == address(0)) {
+			revert InvalidProver();
+		}
 		// check if requestHash is valid
 		if (cb.requestHash != requestHash) revert InvalidRequestHash();
-
+		// calculate actual used bytes
 		uint256 actualUsedBytes = response.length + cb.requestBytes;
-
-		// TODO: call zktls verifier
+		// encode the public values and call the verifier
+		bytes memory publicValues = abi.encodePacked(requestHash, response);
+		
+		// console.log("publicValues: ");
+		// console.logBytes(publicValues);
+		console.log("proofs: ");
+		console.logBytes(proofs);
+		console.log(proofs.length);
+		
+		ISP1Verifier(provers[cb.proverId].verifierAddress).verifyProof(
+			provers[cb.proverId].programVKey,
+			publicValues, // public values is not used for mock verifier
+			proofs // mock proof has to be 0 bytes
+		);
+		// execute the callback function
 		bytes memory data = abi.encodeWithSignature(
 			"deliveryResponse(bytes32,bytes32,bytes,uint256,uint256)",
 			requestId,

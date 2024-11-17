@@ -37,35 +37,8 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		nonce = 0;
 	}
 
-	function requestTLSCall(
-		string calldata remote,
-		string calldata serverName,
-		bytes calldata encryptedKey,
-		bool enableEncryption,
-		bytes[] calldata data,
-		uint256 fee,
-		uint256 maxResponseBytes
-	) external payable returns (bytes32 requestId) {
-		// check payment token balance and gas
-		_lockFee(fee);
-		if (estimateCallbackGas(maxResponseBytes) > msg.value)
-			revert InsufficientPaidGas();
-		// send request to gateway
-		requestId = IZkTlsGateway(gateway).requestTLSCall(
-			remote,
-			serverName,
-			encryptedKey,
-			enableEncryption,
-			data,
-			fee,
-			maxResponseBytes,
-			nonce
-		);
-
-		nonce++;
-	}
-
 	function requestTLSCallTemplate(
+		bytes32 proverId,
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
@@ -80,6 +53,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			revert InsufficientPaidGas();
 		// send request to gateway
 		requestId = IZkTlsGateway(gateway).requestTLSCallTemplate(
+			proverId,
 			remote,
 			serverName,
 			encryptedKey,

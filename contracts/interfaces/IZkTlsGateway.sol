@@ -9,8 +9,10 @@ interface IZkTlsGateway {
 	error InsufficientGas();
 	error InvalidRequestHash();
 	error FieldValueLengthMismatch();
+	error InvalidProver();
 
 	struct CallbackInfo {
+		bytes32 proverId;
 		address proxyAccount;
 		uint256 requestBytes;
 		uint256 maxResponseBytes;
@@ -19,6 +21,11 @@ interface IZkTlsGateway {
 		bytes32 requestHash;
 		bytes32 requestTemplateHash;
 		bytes32 responseTemplateHash;
+	}
+
+	struct ProverInfo {
+		address verifierAddress;
+		bytes32 programVKey;
 	}
 
 	event RequestTLSCallBegin(
@@ -55,18 +62,8 @@ interface IZkTlsGateway {
 		uint256 maxResponseBytes
 	) external view returns (uint256);
 
-	function requestTLSCall(
-		string calldata remote,
-		string calldata serverName,
-		bytes calldata encryptedKey,
-		bool enableEncryption,
-		bytes[] calldata data,
-		uint256 fee,
-		uint256 maxResponseBytes,
-		uint64 nonce
-	) external payable returns (bytes32 requestId);
-
 	function requestTLSCallTemplate(
+		bytes32 proverId,
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,

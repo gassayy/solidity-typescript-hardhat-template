@@ -19,10 +19,13 @@ export const setupFixture = deployments.createFixture(async () => {
   // basic setup constant
   const callbackBaseGas = ethers.parseUnits("2000", "gwei");
   const tokenWeiPerBytes = ethers.parseUnits("1", "gwei");
+  // prover id
+  const prover1Id = ethers.keccak256(ethers.toUtf8Bytes("prover1"));
+  const prover1VKey = ethers.keccak256(ethers.toUtf8Bytes("prover1-vkey"));
   // set up signers
   const [owner, deployer, accountBeaconAdmin, applicationUser1, applicationUser2, feeReceiver] = await ethers.getSigners();
   const paymentToken = await ethers.deployContract("BasicERC20", ["Payment Token", "PT", owner.address]);
-  const verifier = await ethers.deployContract("MockVerifier");
+  const verifier = await ethers.deployContract("SP1MockVerifier");
   const responseHandler = await ethers.deployContract("MockResponseHandler");
   const responseHandler2 = await ethers.deployContract("MockResponseHandler");
   // deploy ZkTlsManager
@@ -43,7 +46,6 @@ export const setupFixture = deployments.createFixture(async () => {
     zkTlsGatewayFactory, [
     await zkTlsManager.getAddress(),
     await paymentToken.getAddress(),
-    await verifier.getAddress(),
     owner.address
   ]);
   await zkTlsGateway.waitForDeployment();
@@ -67,6 +69,12 @@ export const setupFixture = deployments.createFixture(async () => {
   );
   await accountBeaconProxy.waitForDeployment();
   console.log("Beacon Proxy deployed to:", await accountBeaconProxy.getAddress());
+  // set prover in zkTlsGateway
+  await zkTlsGateway.setProver(
+    prover1Id,
+    await verifier.getAddress(),
+    prover1VKey
+  );
   // set beacon to zkTlsManager
   await zkTlsManager.setAccountBeacon(await accountBeacon.getAddress());
   await zkTlsManager.setProxyAccount(await accountBeaconProxy.getAddress(), true);
@@ -79,7 +87,7 @@ export const setupFixture = deployments.createFixture(async () => {
     to: await accountBeaconProxy.getAddress(),
     value: ethers.parseEther("1")
   });
-  console.log("accountBeaconProxy balance: ", accountBeaconProxy);
+  console.log("accountBeaconProxy balance: ", await ethers.provider.getBalance(await accountBeaconProxy.getAddress()));
   console.log("token balance of accountBeaconProxy: ", 
     await accountBeaconProxy.getAddress(),
     await paymentToken.balanceOf(await accountBeaconProxy.getAddress())
@@ -126,6 +134,9 @@ export const setupFixture = deployments.createFixture(async () => {
       callbackBaseGas,
       tokenWeiPerBytes,
       responseBytes: ethers.randomBytes(1024 * 60),
+      provers: {
+        prover1: { proverId: prover1Id, vKey: prover1VKey }
+      }
     },
     functions: {
       genRequestId,

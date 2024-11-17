@@ -80,6 +80,7 @@ describe("ZkTlsGateway", () => {
     // // test beacon proxy
     const tx = await contracts.accountBeaconProxy
       .connect(signers.applicationUser1).requestTLSCallTemplate(
+        data.provers.prover1.proverId,
         requestInfo.remote,
         requestInfo.serverName,
         feeConfig.encryptedKey,
@@ -97,7 +98,6 @@ describe("ZkTlsGateway", () => {
     it("should constracts with correct configuration", async () => {
       expect(await contracts.zkTlsGateway.manager()).to.equal(await contracts.zkTlsManager.getAddress());
       expect(await contracts.zkTlsGateway.paymentToken()).to.equal(await contracts.paymentToken.getAddress());
-      expect(await contracts.zkTlsGateway.verifier()).to.equal(await contracts.verifier.getAddress());
     });
   });
 
@@ -146,7 +146,7 @@ describe("ZkTlsGateway", () => {
         expectedRequestId,
         expectedRequestHash,
         data.responseBytes,
-        ethers.ZeroHash // unused proofs
+        "0x" // an emptry bytes
       )
       const responseReceipt = await responseTx.wait();
       // console.log("responseReceipt: ", responseReceipt.logs);

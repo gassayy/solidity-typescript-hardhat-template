@@ -26,21 +26,12 @@ interface IZkTlsAccount {
 	}
 
 	function requestTLSCallTemplate(
+		bytes32 proverId,
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
 		bool enableEncryption,
 		TemplatedRequest calldata request,
-		uint256 fee,
-		uint256 maxResponseBytes
-	) external payable returns (bytes32 requestId);
-
-	function requestTLSCall(
-		string calldata remote,
-		string calldata serverName,
-		bytes calldata encryptedKey,
-		bool enableEncryption,
-		bytes[] calldata data,
 		uint256 fee,
 		uint256 maxResponseBytes
 	) external payable returns (bytes32 requestId);
