@@ -34,13 +34,13 @@ interface IZkTlsGateway {
 	event RequestTLSCallSegment(
 		bytes32 indexed requestId,
 		bytes data,
-		bool isEncrypted
+		bool enableEncryption
 	);
 	event RequestTLSCallTemplateField(
 		bytes32 indexed requestId,
 		uint64 indexed field,
 		bytes value,
-		bool isEncrypted
+		bool enableEncryption
 	);
 	event RequestTLSCallEnd(bytes32 indexed requestId);
 	event GasUsed(
@@ -59,7 +59,7 @@ interface IZkTlsGateway {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncrypted,
+		bool enableEncryption,
 		bytes[] calldata data,
 		uint256 fee,
 		uint256 maxResponseBytes,
@@ -70,7 +70,7 @@ interface IZkTlsGateway {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncrypted,
+		bool enableEncryption,
 		IZkTlsAccount.TemplatedRequest calldata request,
 		uint256 fee,
 		uint64 nonce,

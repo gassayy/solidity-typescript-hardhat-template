@@ -134,7 +134,7 @@ describe("ZkTlsGateway", () => {
     });
   });
 
-  describe.only("Delivery Response", () => {
+  describe("Delivery Response", () => {
     it("should process a response and emit GasUsed", async () => {
       const requestInfo = data.requestInfo;
       console.log("contract zktls proxy address: (msg.sender)", await contracts.accountBeaconProxy.getAddress());

@@ -10,8 +10,6 @@ import { BeaconProxy } from "@openzeppelin/contracts/proxy/beacon/BeaconProxy.so
 import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 import { SimpleZkTlsAccount } from "./SimpleZkTlsAccount.sol";
 
-import "hardhat/console.sol";
-
 contract ZkTlsManager is
 	IZkTlsManager,
 	Initializable,
@@ -106,9 +104,6 @@ contract ZkTlsManager is
 		);
 		BeaconProxy beaconProxy = new BeaconProxy(accountBeacon, data);
 		proxyAccounts[address(beaconProxy)] = true;
-		console.log("------->");
-		console.log(proxyAccounts[address(beaconProxy)]);
-		console.log("<-------");
 		emit SimpleZkTlsAccountCreated(gateway, address(beaconProxy));
 		return address(beaconProxy);
 	}

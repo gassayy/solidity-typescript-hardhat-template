@@ -11,8 +11,6 @@ import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable
 
 import { IZkTlsResponseHandler } from "./interfaces/IZkTlsResponseHandler.sol";
 
-import "hardhat/console.sol";
-
 contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 	address public manager;
 	address public gateway;
@@ -43,7 +41,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncryptedKey,
+		bool enableEncryption,
 		bytes[] calldata data,
 		uint256 fee,
 		uint256 maxResponseBytes
@@ -57,7 +55,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			remote,
 			serverName,
 			encryptedKey,
-			isEncryptedKey,
+			enableEncryption,
 			data,
 			fee,
 			maxResponseBytes,
@@ -71,11 +69,11 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncryptedKey,
+		bool enableEncryption,
 		TemplatedRequest calldata request,
 		uint256 fee,
 		uint256 maxResponseBytes
-	) public payable returns (bytes32 requestId) {	
+	) public payable returns (bytes32 requestId) {
 		// check payment token balance and gas
 		_lockFee(fee);
 		if (estimateCallbackGas(maxResponseBytes) > msg.value)
@@ -85,7 +83,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			remote,
 			serverName,
 			encryptedKey,
-			isEncryptedKey,
+			enableEncryption,
 			request,
 			fee,
 			nonce,
@@ -112,7 +110,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 			requestHash,
 			response
 		);
-		// TODO:Use low-level call with gas limit
+		// TODO: callback with exact gas limit
 		(bool success, bytes memory returndata) = responseHandler.call(data);
 		//(bool success, bytes memory returndata) = responseHandler.call{gas: paidGas}(data);
 		if (!success) {
@@ -128,10 +126,6 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 		}
 		
 		uint256 usedGas = start - gasleft();
-		// console.log("-----usedGas-----");
-		// console.log(usedGas);
-		// console.log("-----paidGas-----");
-		// console.log(paidGas);
 		uint256 usedFee = _transferFee(usedGas, lockedFee, actualUsedBytes);
 		// uint256 paidFee = 1000;
 		emit PaymentInfo(usedGas, lockedFee, usedFee);

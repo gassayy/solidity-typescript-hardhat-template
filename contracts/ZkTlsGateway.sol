@@ -12,7 +12,6 @@ import { IZkTlsGateway } from "./interfaces/IZkTlsGateway.sol";
 import { IZkTlsAccount } from "./interfaces/IZkTlsAccount.sol";
 import { IZkTlsManager } from "./interfaces/IZkTlsManager.sol";
 
-import "hardhat/console.sol";
 contract ZkTlsGateway is
 	IZkTlsGateway,
 	Initializable,
@@ -61,14 +60,13 @@ contract ZkTlsGateway is
 	}
 
 	function _populateCallbackInfo(
-		bytes32 requestId,
+		bytes32 requestHash,
 		bytes32 requestTemplateHash,
 		bytes32 responseTemplateHash,
 		uint256 requestBytes,
 		uint256 fee,
 		uint64 nonce,
-		uint256 maxResponseBytes,
-		bytes calldata encryptedKey
+		uint256 maxResponseBytes
 	) internal view returns (CallbackInfo memory cb) {
 		cb = CallbackInfo({
 			proxyAccount: msg.sender,
@@ -76,9 +74,7 @@ contract ZkTlsGateway is
 			maxResponseBytes: maxResponseBytes,
 			nonce: nonce,
 			fee: fee,
-			requestHash: keccak256(
-				abi.encode(requestId, msg.sender, encryptedKey, nonce)
-			),
+			requestHash: requestHash,
 			requestTemplateHash: requestTemplateHash,
 			responseTemplateHash: responseTemplateHash
 		});
@@ -88,13 +84,12 @@ contract ZkTlsGateway is
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncrypted,
+		bool enableEncryption,
 		IZkTlsAccount.TemplatedRequest calldata request,
 		uint256 fee,
 		uint64 nonce,
 		uint256 maxResponseBytes
 	) public payable returns (bytes32 requestId) {
-		console.logAddress(msg.sender);
 		if (!IZkTlsManager(manager).hasAccess(msg.sender)) {
 			revert UnauthorizedAccess();
 		}
@@ -105,15 +100,25 @@ contract ZkTlsGateway is
 			revert FieldValueLengthMismatch();
 		}
 
+		bytes32 requestHash = keccak256(
+			abi.encode(
+				remote,
+				serverName,
+				encryptedKey,
+				request.requestTemplateHash,
+				request.fields,
+				request.values
+			)
+		);
+
 		requestCallbacks[requestId] = _populateCallbackInfo(
-			requestId,
+			requestHash,
 			request.requestTemplateHash,
 			request.responseTemplateHash,
 			0, // init requestBytes
 			fee,
 			nonce,
-			maxResponseBytes,
-			encryptedKey
+			maxResponseBytes
 		);
 
 		emit RequestTLSCallBegin(
@@ -135,7 +140,7 @@ contract ZkTlsGateway is
 				requestId,
 				request.fields[i],
 				request.values[i],
-				isEncrypted
+				enableEncryption
 			);
 		}
 		
@@ -153,7 +158,7 @@ contract ZkTlsGateway is
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncrypted,
+		bool enableEncryption,
 		bytes[] calldata data,
 		uint256 fee,
 		uint256 maxResponseBytes,
@@ -165,14 +170,13 @@ contract ZkTlsGateway is
 		requestId = _generateRequestId(msg.sender, nonce);
 
 		requestCallbacks[requestId] = _populateCallbackInfo(
-			requestId,
+			0x0, // requestHash is not used
 			0x0, // requestTemplateHash is not used
 			0x0, // responseTemplateHash is not used
 			0, // init requestBytes as 0
 			fee,
 			nonce,
-			maxResponseBytes,
-			encryptedKey
+			maxResponseBytes
 		);
 
 		emit RequestTLSCallBegin(
@@ -188,7 +192,7 @@ contract ZkTlsGateway is
 
 		for (uint256 i = 0; i < data.length; i++) {
 			requestCallbacks[requestId].requestBytes += data[i].length;
-			emit RequestTLSCallSegment(requestId, data[i], isEncrypted);
+			emit RequestTLSCallSegment(requestId, data[i], enableEncryption);
 		}
 	}
 

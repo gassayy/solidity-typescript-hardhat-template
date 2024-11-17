@@ -29,7 +29,7 @@ interface IZkTlsAccount {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncryptedKey,
+		bool enableEncryption,
 		TemplatedRequest calldata request,
 		uint256 fee,
 		uint256 maxResponseBytes
@@ -39,7 +39,7 @@ interface IZkTlsAccount {
 		string calldata remote,
 		string calldata serverName,
 		bytes calldata encryptedKey,
-		bool isEncryptedKey,
+		bool enableEncryption,
 		bytes[] calldata data,
 		uint256 fee,
 		uint256 maxResponseBytes
