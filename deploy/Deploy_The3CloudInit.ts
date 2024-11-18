@@ -4,7 +4,9 @@ import { ethers, upgrades } from "hardhat";
 import { upgradeableDeploy } from "./helper/deployUpgradeable";
 
 /**
+ * hh deploy --network sepolia --tags the3cloudinit
  * Sepolia
+ * Token: 
  * TestResponseHandler deployed at: 0x8bd59647A733D4dE1f74d3e387c0DC33F3DB4cFE
  * ZkTlsManager deployed to: 0x894Bf834bc32c9c3c02c99b372283383a2C28f1F
  * Implementation address: 0x64cD398499c60efb4b052f1bE7cE088551351a1F
@@ -14,8 +16,10 @@ import { upgradeableDeploy } from "./helper/deployUpgradeable";
  * 
  * accountBeacon deployed to: 0x6cb4185c3D8723252650Ce2Cb6b539c5B8c649f3
  * accountBeaconProxy deployed at: 0x8622F295950BB1F09e8984B6e9193AF96cE837dA
+ * // implementation address: 0x9f344D2Db02b7c65fdD9C4d116c932D5af5C60C8 // impl for beacon proxy
  * 
- * hh verify 0x8622F295950BB1F09e8984B6e9193AF96cE837dA --network sepolia
+ * hh --network sepolia verify 0x8622F295950BB1F09e8984B6e9193AF96cE837dA     
+ * hh --network sepolia verify 0x9f344D2Db02b7c65fdD9C4d116c932D5af5C60C8
  */
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -71,4 +75,4 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
 	console.log("accountBeaconProxy deployed at:", await accountBeaconProxy.getAddress())
 }
 export default func
-func.tags = ["the3cloudsuite"]
+func.tags = ["the3cloudinit"]
