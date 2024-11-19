@@ -49,7 +49,7 @@ contract SimpleZkTlsAccount is IZkTlsAccount, Initializable {
 	) public payable returns (bytes32 requestId) {
 		// check payment token balance and gas
 		_lockFee(fee);
-		if (estimateCallbackGas(maxResponseBytes) > msg.value)
+		if (estimateCallbackGas(maxResponseBytes) > address(this).balance)
 			revert InsufficientPaidGas();
 		// send request to gateway
 		requestId = IZkTlsGateway(gateway).requestTLSCallTemplate(
